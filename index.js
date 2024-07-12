@@ -1,3 +1,51 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
@@ -81,22 +129,23 @@ function setStyle(ele) {
   }
   #danmu-content {
     font-size: ${configs.fontSize}px;
+    height: auto;
   }
   .danmu-username-long, .danmu-username-short {
     color: rgb(200,200,200);
   }
   .danmu-item {
     background-color: rgba(0, 0, 0, 0.4);
-    border-radius: ${configs.gap/2.8+0.8}px;
+    border-radius: ${configs.gap / 2.8 + 0.8}px;
     padding: ${configs.gap}px;
     display: inline-block;
-    margin: ${configs.gap/5+0.5}px;
+    margin: ${configs.gap / 5 + 0.5}px;
   }
   .danmu-item img {
     border-radius: 888px;
-    width: ${configs.fontSize*1.18}px;
-    height: ${configs.fontSize*1.18}px;
-    margin-right: ${configs.fontSize/3}px;
+    width: ${configs.fontSize * 1.18}px;
+    height: ${configs.fontSize * 1.18}px;
+    margin-right: ${configs.fontSize / 3}px;
     display: inline;
     vertical-align: middle;
   }
@@ -110,7 +159,7 @@ function setStyle(ele) {
       ele.querySelector('#danmu-content').style.display = 'none';
     } else {
       ele.querySelector('#danmu-content').style.display = 'block';
-      while (ele.clientHeight > configs.maxHeight) {
+      while (ele.querySelector('#danmu-content').clientHeight > configs.maxHeight) {
         let firstChatItem = ele.querySelector('.danmu-item:first-child');
         if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
       };
@@ -198,14 +247,16 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
             let el = digestYtChatDom(node);
             if (!content) return;
             danmuEle.querySelector('#danmu-content').appendChild(el);
-            function isTooLong(el) {
+            function overButtom(el) {
+              if (danmuEle.querySelector('#danmu-content') != 'auto') return false;
               const rect = el.getBoundingClientRect();
               const viewportHeight = parent.window.innerHeight || window.innerHeight
                 || videoDoc.documentElement.clientHeight;
               return rect.bottom > viewportHeight;
             }
-            while (danmuEle.offsetHeight > configs.maxHeight || isTooLong(danmuEle)) {
-              danmuEle.querySelector('.danmu-item').remove();
+            while (danmuEle.querySelector('#danmu-content').offsetHeight > configs.maxHeight || overButtom(danmuEle)) {
+              let firstChatItem = danmuEle.querySelector('.danmu-item:first-child');
+              if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
             }
           });
         });
@@ -290,11 +341,13 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
       danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
       danmuEle.querySelector('#danmu-content').style.border = 'white solid 0.1px';
       danmuEle.querySelector('#danmu-content').style.borderRight = '8.8px dashed white';
+      danmuEle.querySelector('#danmu-content').style.height = `${configs.maxHeight - 1}px`;
     });
     danmuEle.addEventListener('mouseleave', () => {
       danmuEle.querySelector('#danmu-ctrl').style.visibility = 'hidden';
       danmuEle.querySelector('#danmu-content').style.border = '';
       danmuEle.querySelector('#danmu-content').style.borderRight = '';
+      danmuEle.querySelector('#danmu-content').style.height = 'auto';
     });
 
     // 阻断点击事件穿透
@@ -325,12 +378,13 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     danmuEle.querySelector('#danmu-height-minus').addEventListener('click', () => {
       setLocal({ maxHeight: Math.max(0, configs.maxHeight - 18) });
       eleRefresh(danmuEle);
-      while (danmuEle.clientHeight > configs.maxHeight) {
+      while (danmuEle.querySelector('#danmu-content').clientHeight > configs.maxHeight) {
         let firstChatItem = danmuEle.querySelector('.danmu-item:first-child');
         if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
       };
     });
 
+    // 显示模式切换
     danmuEle.querySelector('#show-mode').addEventListener('click', () => {
       setLocal({ showMode: (configs.showMode + 1) % Object.keys(modes).length });
       danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
@@ -386,31 +440,50 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     danmuEle.querySelector('#danmu-highlight-names').addEventListener('change', () => { namesChanged = true });
     danmuEle.querySelector('#danmu-block-names').addEventListener('change', () => { namesChanged = true });
 
-    // 鼠标右边缘箭头
+    // 鼠标边缘箭头
     danmuEle.addEventListener('mousemove', function (event) {
       const rect = danmuEle.getBoundingClientRect();
-      const offset = 10; // 边缘区域的宽度
+      const offset = 10;
       if (event.clientX <= rect.right && event.clientX >= rect.right - offset) {
-        danmuEle.style.cursor = 'ew-resize';
+        danmuEle.style.cursor = 'ew-resize'; // 显示水平拉伸箭头
+      } else if (event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
+        danmuEle.style.cursor = 'ns-resize'; // 显示垂直拉伸箭头
+      } else if (
+        event.clientX <= rect.right && event.clientX >= rect.right - offset &&
+        event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset
+      ) {
+        danmuEle.style.cursor = 'nwse-resize'; // 显示右下角拉伸箭头
       } else {
-        danmuEle.style.cursor = 'default';
+        danmuEle.style.cursor = 'default'; // 默认箭头
       }
     });
 
-    // 鼠标拖宽度
+    // 鼠标按下时拖拽功能
     danmuEle.addEventListener('mousedown', function (event) {
       let doc = event.target.ownerDocument;
-      if (danmuEle.style.cursor === 'ew-resize') {
-        const startX = event.clientX;
-        const startWidth = danmuEle.offsetWidth;
-        function doDrag(e) {
-          danmuEle.style.width = startWidth + e.clientX - startX + 'px';
-          setLocal({ width: startWidth + e.clientX - startX });
+      let x = danmuEle.offsetWidth - event.clientX;
+      let y = danmuEle.offsetHeight - event.clientY;
+
+      function doDrag(e) {
+        if (danmuEle.style.cursor === 'ew-resize') { // 拖动调整宽度
+          danmuEle.style.width = e.clientX + x + 'px';
+        } else if (danmuEle.style.cursor === 'ns-resize') { // 拖动调整高度
+          danmuEle.style.height = e.clientY + y + 'px';
+        } else if (danmuEle.style.cursor === 'nwse-resize') { // 拖动调整宽度和高度
+          danmuEle.style.width = e.clientX + x + 'px';
+          danmuEle.style.height = e.clientY + y + 'px';
         }
-        function stopDrag() {
-          doc.removeEventListener('mousemove', doDrag);
-          doc.removeEventListener('mouseup', stopDrag);
-        }
+      }
+
+      function stopDrag(e) {
+        setLocal({ width: e.clientX + x, height: e.clientY + y });
+        doc.removeEventListener('mousemove', doDrag);
+        doc.removeEventListener('mouseup', stopDrag);
+      }
+
+      if (danmuEle.style.cursor === 'ew-resize' ||
+        danmuEle.style.cursor === 'ns-resize' ||
+        danmuEle.style.cursor === 'nwse-resize') {
         doc.addEventListener('mousemove', doDrag);
         doc.addEventListener('mouseup', stopDrag);
       }
@@ -424,15 +497,14 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
       let doc = e.target.ownerDocument;
       e.stopPropagation();
       e.preventDefault();
-      let shiftX = e.clientX - danmuEle.getBoundingClientRect().left // + videoRect().left;
-      let shiftY = e.clientY - danmuEle.getBoundingClientRect().top // + videoRect().top;
+      let shiftX = e.clientX - danmuEle.getBoundingClientRect().left;
+      let shiftY = e.clientY - danmuEle.getBoundingClientRect().top;
       function moveAt(pageX, pageY) {
         danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
         danmuEle.style.top = pageY - shiftY + 'px';
         danmuEle.style.left = pageX - shiftX + 'px';
         configs.top = pageY - shiftY;
         configs.left = pageX - shiftX;
-        setLocal();
       }
       function onMouseMove(event) {
         moveAt(event.pageX, event.pageY);
@@ -440,6 +512,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
       doc.addEventListener('mousemove', onMouseMove);
 
       doc.addEventListener('mouseup', function () {
+        setLocal();
         doc.removeEventListener('mousemove', onMouseMove);
         doc.onmouseup = null;
       }, { once: true });
@@ -480,7 +553,6 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     el.innerHTML += `<span class="danmu-username-long" ${color}>${username + separator}</span>`;
     el.innerHTML += `<span class="danmu-username-short" ${color}>${username.substring(0, 1) + separator}</span>`;
     el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
-    console.log(el.outerHTML);
     return el;
   };
 };
