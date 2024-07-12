@@ -6,487 +6,483 @@
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
 // @grant        none
-// @require      https://code.jquery.com/jquery-3.6.0.min.js
-// @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
 // @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
-// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
 // ==/UserScript==
 
-// 广告：欢迎收看陈一发儿直播：https://67373.net
+// ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
 // 如果有 bug，在上面网站也可以找到反馈联系方式
 
-// 本地配置数据读写
-let danmuParams = JSON.parse(localStorage.getItem('danmuParams')) || {
-  maxWidth: 588, maxHeight: 588, showMode: 0, specialNames: [], blackNames: [],
-  topCalc: 0.068, leftCalc: 0.028, widthCalc: 0.38, fontSize: 18,
+// 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
+// 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
+
+// ✴️ 通用
+localStorage.removeItem('danmuParams'); // 清除旧版数据;
+
+const videoDoc = parent.document.querySelector('video').ownerDocument;
+const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
+let configs;
+getLocal();
+function getLocal() {
+  const defaultConfigs = {
+    showMode: 0, fontSize: 18, top: 88, left: 58, maxHeight: 528, width: 528, gap: 5,
+    focusNames: [], highlightNames: [], blockNames: [],
+    isFocusNames: false, isHighlightNames: false, isBlockNames: false,
+  };
+  const storedConfigs = JSON.parse(localStorage.getItem('danmuConfigs') || '{}');
+  configs = Object.assign({}, defaultConfigs, storedConfigs);
+  for (let key in configs) {
+    if (!(key in defaultConfigs)) {
+      delete configs[key];
+    }
+  };
+  setLocal();
 };
-
-const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏', "4": '仅关注' };
-
-function eleShowCtrl(selector, display) {
-  const eles = document.querySelectorAll(selector);
-  eles.forEach(ele => ele.style.display = display);
-}
 
 function setLocal(params) {
-  localStorage.setItem('danmuParams', JSON.stringify(Object.assign(danmuParams, params)));
-}
-setLocal();
-
-let cssLink = $('<link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet" type="text/css">');
-$('head').append(cssLink);
-
-const danmuCtrlStyle = document.createElement('style');
-danmuCtrlStyle.textContent = `
-.danmuCtrl {
-  background-color: rgba(0,0,0,0.5);
-  border: solid white 0.1px;
-  padding: 2.8px;
-  visibility: hidden
-}
-
-#danmuEle img {
-  width: var(--yt-live-chat-emoji-size);
-  height: var(--yt-live-chat-emoji-size);
-  margin: -1px 2px 1px;
-  vertical-align: middle;
-}
-
-#danmuSpecialNames {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #f0f0f0;
-  padding: 20px;
-  border: 1px solid #ccc;
-}`;
-document.head.appendChild(danmuCtrlStyle);
-
-// 获取播放器窗口大小
-let widthBase = () => parent.$('#columns').width();
-
-// 建立基本元素
-function getDanmuEle() {
-  let danmuEle = Object.assign(document.createElement('div'), {
-    id: 'danmuEle', style: 'position: absolute; color: white; height: auto; z-index: 67373',
-  });
-
-  danmuEle.innerHTML = `
-  <div id="danmu-ctrl" class="danmuCtrl">
-    <button id="showMode">${modes[danmuParams.showMode]}</button>&nbsp;&nbsp;
-    <span style="white-space: nowrap;">
-      <span id="danmu-fontsize">字号${danmuParams.fontSize}</span>
-      <button id="danmu-fontsize-add">+</button>
-      <button id="danmu-fontsize-minus">-</button>
-    </span>&nbsp;&nbsp;
-    <span style="white-space: nowrap;">
-      <span id="danmu-height">高度${danmuParams.maxHeight}</span>
-      <button id="danmu-height-add">+</button>
-      <button id="danmu-height-minus">-</button>
-    </span>&nbsp;&nbsp;
-  </div>
-  <div id="danmu-content" style="font-size:${danmuParams.fontSize}px;"></div>
-  <div id="danmuSpecialNames">
-    <div>
-      <div style="color: black; font-size: 1.8em">如果在这里输入用户名，则只会显示这些用户的弹幕。<br/>每行写一个，一定要写准确！</div>
-      <div style="height:0.5em"></div>
-      <textarea id="danmuSpecialNamesText" style="width: 100%; height: 128px"></textarea>
-      <div style="height:0.5em"></div>
-      <textarea id="danmuBlackNamesText" style="width: 100%; height: 128px"></textarea>
-      <div style="height:0.5em"></div>
-      <button id="danmuSpecialNamesCancel">取消</button>
-      <button id="danmuSpecialNamesSubmit">确定</button>
-    </div>
-  </div>`;
-
-  // 移入移出显示
-  danmuEle.addEventListener('mouseenter', () => {
-    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-    danmuEle.querySelector('#danmu-content').style.border = 'white solid 0.1px';
-    danmuEle.querySelector('#danmu-content').style.borderRight = '8.8px solid white';
-  });
-  danmuEle.addEventListener('mouseleave', () => {
-    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'hidden';
-    danmuEle.querySelector('#danmu-content').style.border = '';
-    danmuEle.querySelector('#danmu-content').style.borderRight = '';
-  });
-
-  // 屏蔽点击事件
-  danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
-  danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
-
-  // 控制功能 - 字号大小
-  danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', () => {
-    setLocal({ fontSize: danmuParams.fontSize + 1 });
-    danmuEle.querySelector('#danmu-content').style.fontSize = danmuParams.fontSize + 'px';
-    danmuEle.querySelector('#danmu-fontsize').innerText = `字号${danmuParams.fontSize}`;
-  });
-  danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', () => {
-    setLocal({ fontSize: danmuParams.fontSize - 1 });
-    danmuEle.querySelector('#danmu-content').style.fontSize = danmuParams.fontSize + 'px';
-    danmuEle.querySelector('#danmu-fontsize').innerText = `字号${danmuParams.fontSize}`;
-  });
-
-  // 控制功能 - 高度
-  danmuEle.querySelector('#danmu-height-add').addEventListener('click', () => {
-    setLocal({ maxHeight: danmuParams.maxHeight + 18 });
-    danmuEle.querySelector('#danmu-height').innerText = `高度${danmuParams.maxHeight}`;
-  });
-  danmuEle.querySelector('#danmu-height-minus').addEventListener('click', () => {
-    setLocal({ maxHeight: danmuParams.maxHeight - 18 });
-    danmuEle.querySelector('#danmu-height').innerText = `高度${danmuParams.maxHeight}`;
-    while (danmuEle.clientHeight > danmuParams.maxHeight) {
-      // 移除最旧的消息
-      let firstChatItem = danmuEle.querySelector('.chat-item:first-child');
-      if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
-    }
-  });
-
-  // 显示模式轮换
-  let danmuUsernameStyle = danmuEle.ownerDocument.createElement('style');
-  parent.$('#columns').get(0).ownerDocument.head.appendChild(danmuUsernameStyle);
-  showModeRefresh();
-  function showModeRefresh() {
-    if (danmuParams.showMode == 3) {
-      danmuEle.querySelector('#danmu-content').style.display = 'none';
-    } else {
-      danmuEle.querySelector('#danmu-content').style.display = 'block';
-    };
-    switch (danmuParams.showMode) {
-      case 0:
-        danmuUsernameStyle.innerHTML = `
-          .danmuUsernameLong { display: inline !important; }
-          .danmuUsernameShort { display: none !important; }`;
-        break;
-      case 1:
-        danmuUsernameStyle.innerHTML = `
-          .danmuUsernameLong { display: none !important; }
-          .danmuUsernameShort { display: inline !important; }`;
-        break;
-      case 2:
-      case 3:
-        danmuUsernameStyle.innerHTML = `
-        .danmuUsernameLong { display: none !important; }
-        .danmuUsernameShort { display: none !important; }`;
-        break;
-      case 4:
-        danmuUsernameStyle.innerHTML = `
-          .danmuUsernameLong { display: inline !important; }
-          .danmuUsernameShort { display: none !important; }`;
-        break;
-    }
-  };
-  danmuEle.querySelector('#showMode').addEventListener('click', () => {
-    setLocal({ showMode: (danmuParams.showMode + 1) % Object.keys(modes).length });
-    danmuEle.querySelector('#showMode').innerText = modes[danmuParams.showMode];
-    showModeRefresh();
-  });
-
-  // 仅关注用户
-  danmuEle.querySelector('#danmuSpecialNames').addEventListener('click', event => {
-    let doc = event.target.ownerDocument;
-
-
-
-  });
-
-  // 鼠标右边缘箭头
-  danmuEle.addEventListener('mousemove', function (event) {
-    const rect = danmuEle.getBoundingClientRect();
-    const offset = 10; // 边缘区域的宽度
-    if (event.clientX <= rect.right && event.clientX >= rect.right - offset) {
-      danmuEle.style.cursor = 'ew-resize';
-    } else {
-      danmuEle.style.cursor = 'default';
-    }
-  });
-
-  // 鼠标拖宽度
-  danmuEle.addEventListener('mousedown', function (event) {
-    let doc = event.target.ownerDocument;
-    if (danmuEle.style.cursor === 'ew-resize') {
-      const startX = event.clientX;
-      const startWidth = danmuEle.offsetWidth;
-      function doDrag(e) {
-        danmuEle.style.width = startWidth + e.clientX - startX + 'px';
-        setLocal({ widthCalc: (startWidth + e.clientX - startX) / widthBase() });
-      }
-      function stopDrag() {
-        doc.removeEventListener('mousemove', doDrag);
-        doc.removeEventListener('mouseup', stopDrag);
-      }
-      doc.addEventListener('mousemove', doDrag);
-      doc.addEventListener('mouseup', stopDrag);
-    }
-  });
-
-  // 鼠标拖拽箭头
-  danmuEle.querySelector('#danmu-ctrl').style.cursor = 'grab';
-  // 拖拽动作
-  danmuEle.querySelector('#danmu-ctrl').addEventListener('mousedown', drag);
-  function drag(e) {
-    let doc = e.target.ownerDocument;
-    e.stopPropagation();
-    e.preventDefault();
-    let shiftX = e.clientX - danmuEle.getBoundingClientRect().left // + videoRect().left;
-    let shiftY = e.clientY - danmuEle.getBoundingClientRect().top // + videoRect().top;
-    function moveAt(pageX, pageY) {
-      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-      danmuEle.style.top = pageY - shiftY + 'px';
-      danmuEle.style.left = pageX - shiftX + 'px';
-      danmuParams.topCalc = (pageY - shiftY) / widthBase();
-      danmuParams.leftCalc = (pageX - shiftX) / widthBase();
-      setLocal();
-    }
-    function onMouseMove(event) {
-      moveAt(event.pageX, event.pageY);
-    }
-    doc.addEventListener('mousemove', onMouseMove);
-
-    doc.addEventListener('mouseup', function () {
-      doc.removeEventListener('mousemove', onMouseMove);
-      doc.onmouseup = null;
-    }, { once: true });
-  }
-  return danmuEle;
-}
-
-// 自动适应宽度等
-function adjustDanmuEle(danmuEle) {
-  // danmuEle.style.visibility = videoRect().width > 400 ? 'visible' : 'hidden'; // 小窗时屏蔽弹幕显示
-  danmuEle.style.width = widthBase() * danmuParams.widthCalc + 'px';
-  danmuEle.style.top = widthBase() * danmuParams.topCalc + 'px';
-  danmuEle.style.left = widthBase() * danmuParams.leftCalc + 'px';
+  localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
 
-
-// 监听页面跳转事件
-(function (history) {
-  const pushState = history.pushState;
-  const replaceState = history.replaceState;
-
-  function onStateChange(event) {
-    main();
-    console.log('--------------');
-    console.log('URL changed to:', document.location.href);
-    console.log('--------------');
+function setStyle(ele) {
+  let floatDanmuStyle = videoDoc.querySelector('#float-danmu-style');
+  if (!floatDanmuStyle) {
+    floatDanmuStyle = videoDoc.createElement('style');
+    floatDanmuStyle.id = 'float-danmu-style';
+    document.head.appendChild(floatDanmuStyle);
   }
-  window.addEventListener('popstate', onStateChange);
-  window.addEventListener('hashchange', onStateChange);
-  history.pushState = function (state) {
-    const result = pushState.apply(history, arguments);
-    onStateChange({ state });
-    return result;
-  };
-  history.replaceState = function (state) {
-    const result = replaceState.apply(history, arguments);
-    onStateChange({ state });
-    return result;
-  };
-  const observer = new MutationObserver(() => {
-    if (document.location.href !== observer.lastHref) {
-      observer.lastHref = document.location.href;
-      onStateChange({});
-    }
-  });
-  observer.observe(document, { subtree: true, childList: true });
-  observer.lastHref = document.location.href;
-})(window.history);
-
-// 获取聊天内容 小米
-let lastUserName;
-function digestYtChatDom(dom) {
-  const newChat = $(dom);
-  const userphoto = newChat.find("#author-photo #img").css({
-    "border-radius": "15px",
-    "margin-right": "4px",
-    "display": "inline"
-  })[0].outerHTML;
-  const content = newChat.find("#message").html();
-  let username = newChat.find("#author-name").html();
-  if (username && username.indexOf("<") > -1) {
-    username = username.substring(0, username.indexOf("<")).trim();
+  let baseStyle = `
+  .danmu-highlight {
+    border: solid 0.8px OrangeRed;
   }
-  if (lastUserName == username) {
-    return null;
+  #danmu-ele {
+    position: absolute;
+    color: white;
+    height: auto;
+    z-index: 67373;
+    top: ${configs.top}px;
+    left: ${configs.left}px;
+    width: ${configs.width}px;
   }
-  lastUserName = username;
-  if (newChat.find("#author-name svg, #chat-badges svg")[0]) {
-    //svg
-    newChat.find("#author-name svg, #chat-badges svg").each((i, e) => {
-      $(e).css({
-        "width": "24px",
-        "height": "24px",
-        "display": "inline",
-        "margin-bottom": "-6px"
-      })
-      username += $("<div></div>").append($(e)).html().replace(/ {2,}/g, "");
-    })
+  #danmu-ctrl {
+    background-color: rgba(0,0,0,0.5);
+    border: solid white 0.1px;
+    padding: 2.8px;
   }
-  let color;
-  if (newChat.find("#card")[0] && newChat.find("#purchase-amount")[0]) {
-    //sc
-    username = "(SC) " + username;
-    color = newChat.css("--yt-live-chat-paid-message-primary-color");
+  #danmu-pop-board {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #f0f0f0;
+    padding: 20px;
+    border: 1px solid #ccc;
+    color: black;
+    font-size: 1.8em;
+  }
+  #danmu-content {
+    font-size: ${configs.fontSize}px;
+  }
+  .danmu-username-long, .danmu-username-short {
+    color: rgb(200,200,200);
+  }
+  .danmu-item {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: ${configs.gap/2.8+0.8}px;
+    padding: ${configs.gap}px;
+    display: inline-block;
+    margin: ${configs.gap/5+0.5}px;
+  }
+  .danmu-item img {
+    border-radius: 888px;
+    width: ${configs.fontSize*1.18}px;
+    height: ${configs.fontSize*1.18}px;
+    margin-right: ${configs.fontSize/3}px;
+    display: inline;
+    vertical-align: middle;
+  }
+  .danmu-text{
+    color: white;
+  }
+  `;
+  const showMode = modes[configs.showMode];
+  if (ele) {
+    if (showMode == '全隐藏') {
+      ele.querySelector('#danmu-content').style.display = 'none';
+    } else {
+      ele.querySelector('#danmu-content').style.display = 'block';
+      while (ele.clientHeight > configs.maxHeight) {
+        let firstChatItem = ele.querySelector('.danmu-item:first-child');
+        if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
+      };
+    };
+  }
+  let showModeStyle = '';
+  switch (showMode) {
+    case '全显示':
+      showModeStyle = `
+        .danmu-username-long { display: inline !important; }
+        .danmu-username-short { display: none !important; }`;
+      break;
+    case '短用户名':
+      showModeStyle = `
+        .danmu-username-long { display: none !important; }
+        .danmu-username-short { display: inline !important; }`;
+      break;
+    case '无用户名':
+      showModeStyle = `
+        .danmu-username-long { display: none !important; }
+        .danmu-username-short { display: none !important; }`;
+      break;
   };
-  let ret = {
-    userphoto,
-    username,
-    content,
-    color
-  };
-  return ret;
+  floatDanmuStyle.textContent = baseStyle + showModeStyle;
 }
 
-// 将聊天内容显示在框内 小米
-function addNewYtDanmaku(data) {
-  if (!data || !data.username) return;
-  if (modes[danmuParams.showMode] == '仅关注'
-    && danmuParams.specialNames.length > 0
-    && !danmuParams.specialNames.includes(data.username)) return;
-  if (danmuParams.blackNames.includes(data.username)) return;
-  let content = '';
-  if (data.userphoto) {
-    content += data.userphoto;
-  }
-  if (data.color) {
-    content += '<span style="color: ' + data.color + ';'
-  } else {
-    content += '<span style="color: white;'
-  }
-  content += '"><span style="color: rgb(200,200,200)">';
-  try {
-    let col = data.content ? ' ' : '';
-    content += `<span class="danmuUsernameLong">${data.username + col}</span>`;
-    content += `<span class="danmuUsernameShort">${data.username.substring(0, 1) + col}</span>`;
-  } catch { };
-  content += '</span>';
-  content += data.content;
-  content += '</span>';
-  return content;
-}
-
-// 主函数
-// window.onload = main;
-
-$(document).ready(main);
-function main() {
-  try {
-    parent.$("#danmuEle").each(function () {
-      $(this).remove();
+// ✴️ 主页面
+if (location.href.startsWith('https://www.youtube.com/watch?v=')) {
+  setStyle();
+  // 监听页面跳转事件
+  (function (history) {
+    const pushState = history.pushState;
+    const replaceState = history.replaceState;
+    function onStateChange(event) {
+      try {
+        const danmuEle = document.getElementById('danmu-ele');
+        if (danmuEle.danmuurl != document.URL) danmuEle.parentNode.removeChild(danmuEle);
+      } catch { };
+      console.log(`--------------\nURL changed to:${document.location.href}\n--------------`,);
+    };
+    window.addEventListener('popstate', onStateChange);
+    window.addEventListener('hashchange', onStateChange);
+    history.pushState = function (state) {
+      const result = pushState.apply(history, arguments);
+      onStateChange({ state });
+      return result;
+    };
+    history.replaceState = function (state) {
+      const result = replaceState.apply(history, arguments);
+      onStateChange({ state });
+      return result;
+    };
+    const observer = new MutationObserver(() => {
+      if (document.location.href !== observer.lastHref) {
+        observer.lastHref = document.location.href;
+        onStateChange({});
+      }
     });
-  } catch { };
-  if ($("#chatframe")[0]) return; // 内部 iframe 聊天框
+    observer.observe(document, { subtree: true, childList: true });
+    observer.lastHref = document.location.href;
+  })(window.history);
+};
 
-  let timer = setInterval(() => {
-    let _$ytChatDiv = $("#item-list");
-    if (_$ytChatDiv && _$ytChatDiv[0]) {
-      let chatframe = $(_$ytChatDiv[0]);
+// ✴️ 弹幕 iframe 页面
+if (location.href.startsWith('https://www.youtube.com/live_chat')) {
+  if (document.readyState == "complete" || document.readyState == "loaded" || document.readyState == "interactive") {
+    main();
+  } else {
+    document.addEventListener("DOMContentLoaded", main);
+  };
+
+  function main() {
+    parent.document.querySelectorAll("#danmu-ele").forEach(el => el.remove());
+    let timer = setInterval(() => {
+      let ytbChatEle = document.querySelector('#item-offset');
+      if (!ytbChatEle) return;
       clearInterval(timer);
-
-      let danmuEle = getDanmuEle()
-      let draggable = $(danmuEle);
-      adjustDanmuEle(danmuEle);
-      parent.$('#columns').append(draggable);
-      chatframe.unbind('DOMNodeInserted').bind('DOMNodeInserted', (event) => {
-        const newChatDOM = event.target;
-        const className = newChatDOM.className;
-        if (!className?.indexOf || className.indexOf("yt-live-chat-item-list-renderer") == -1) {
-          return;
-        }
-        setTimeout(() => {
-          const chatEntry = digestYtChatDom(newChatDOM);
-          if (!chatEntry) return;
-          let content = addNewYtDanmaku(chatEntry);
-          if (content) {
-            let p = $('<div class="chat-item" style="line-height: 25px">' + content + '</div>');
-            p.css({
-              "background-color": "rgba(0, 0, 0, 0.4)",
-              "border-radius": "4px",
-              "padding": "1.8px",
-              "display": "inline-block",
-              "margin": "1px",
-              "font-size": "1em"
-            });
-            p.find('img').css({
-              // "width": danmuParams.fontSize + "px",
-              // "height": danmuParams.fontSize + "px",
-              "width": '1em',
-              "height": '1em',
-            });
-            draggable.find('#danmu-content').append(p);
+      const danmuEle = getDanmuEle();
+      danmuEle.danmuurl = videoDoc.URL;
+      videoDoc.querySelector('body').appendChild(danmuEle);
+      let observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType !== 1 || node.tagName.toLowerCase() !== 'yt-live-chat-text-message-renderer') return;
+            let el = digestYtChatDom(node);
+            if (!content) return;
+            danmuEle.querySelector('#danmu-content').appendChild(el);
             function isTooLong(el) {
               const rect = el.getBoundingClientRect();
-              const viewportHeight = parent.window.innerHeight || window.innerHeight || document.documentElement.clientHeight;
+              const viewportHeight = parent.window.innerHeight || window.innerHeight
+                || videoDoc.documentElement.clientHeight;
               return rect.bottom > viewportHeight;
             }
-            while (draggable.height() > danmuParams.maxHeight || isTooLong(danmuEle)) {
-              // 移除最旧的消息
-              // console.log(draggable.height(), "移除最旧的消息")
-              draggable.find(".chat-item:eq(0)").remove();
+            while (danmuEle.offsetHeight > configs.maxHeight || isTooLong(danmuEle)) {
+              danmuEle.querySelector('.danmu-item').remove();
             }
-          }
-        }, 0);
+          });
+        });
       });
-    } else {
-      setTimeout(() => { }, 0);
+      let config = { childList: true, subtree: true };
+      observer.observe(ytbChatEle, config);
+    }, 888);
+  };
+
+  // ✴️ 初始化
+  function eleRefresh(ele, ifTextRefresh) {
+    ele = ele || videoDoc.querySelector('#danmu-ele');
+    if (!ele) return;
+    ele.querySelector('#danmu-settings').innerText =
+      `${modes[configs.showMode]}｜限高${configs.maxHeight}｜`
+      + `${configs.isFocusNames ? '√' : '×'}${configs.isHighlightNames ? '√' : '×'}${configs.isBlockNames ? '√' : '×'}`;
+    ele.querySelector('#show-mode').innerText = modes[configs.showMode];
+    ele.querySelector('#danmu-fontsize').innerText = `字号${configs.fontSize}`;
+    ele.querySelector('#danmu-gap').innerText = `间隔${configs.gap}`;
+    ele.querySelector('#danmu-height').innerText = `限高${configs.maxHeight}`;
+    ele.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
+    ele.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
+    ele.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
+    setStyle(ele);
+    if (ifTextRefresh) textRefresh(ele);
+  };
+  function textRefresh(ele) {
+    ele.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
+    ele.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
+    ele.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
+  }
+
+  // ✴️ 建立基本元素
+  function getDanmuEle() {
+    let danmuEle = document.createElement('div')
+    danmuEle.id = 'danmu-ele';
+    danmuEle.innerHTML = `
+      <div id="danmu-ctrl" >
+        <button id="danmu-settings"></button>
+      </div>
+      <div id="danmu-content"></div>
+      <div id="danmu-pop-board">
+        <button id="show-mode"></button>&nbsp;&nbsp;
+        <span style="white-space: nowrap;">
+          <span id="danmu-fontsize"></span>
+          <button id="danmu-fontsize-add">+</button>
+          <button id="danmu-fontsize-minus">-</button>
+        </span>&nbsp;&nbsp;
+        <span style="white-space: nowrap;">
+          <span id="danmu-gap"></span>
+          <button id="danmu-gap-add">+</button>
+          <button id="danmu-gap-minus">-</button>
+        </span>&nbsp;&nbsp;
+        <span style="white-space: nowrap;">
+          <span id="danmu-height"></span>
+          <button id="danmu-height-add">+</button>
+          <button id="danmu-height-minus">-</button>
+        </span>&nbsp;&nbsp;
+        <div style="margin:0.28em 0">
+          <input type="checkbox" id="danmu-is-focus-names">
+          如果打勾，则会【只显示】这些用户名的弹幕。每行一个用户名。
+        </div>
+        <textarea id="danmu-focus-names" style="width: 100%; height: 128px"></textarea>
+        <div style="margin:0.28em 0">
+          <input type="checkbox" id="danmu-is-highlight-names">
+          如果打勾，这些用户名弹幕会高亮。
+        </div>
+        <textarea id="danmu-highlight-names" style="width: 100%; height: 128px"></textarea>
+        <div style="margin:0.28em 0">
+          <input type="checkbox" id="danmu-is-block-names">
+          如果打勾，这些用户名弹幕会被屏蔽。
+        </div>
+        <textarea id="danmu-block-names" style="width: 100%; height: 128px"></textarea>
+        <div style="height:0.5em"></div>
+        <button id="danmu-pop-board-cancel">取消</button>
+        <button id="danmu-pop-board-submit">确定</button>
+      </div>`;
+    eleRefresh(danmuEle);
+
+    // 移入移出显示
+    danmuEle.addEventListener('mouseenter', () => {
+      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+      danmuEle.querySelector('#danmu-content').style.border = 'white solid 0.1px';
+      danmuEle.querySelector('#danmu-content').style.borderRight = '8.8px dashed white';
+    });
+    danmuEle.addEventListener('mouseleave', () => {
+      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'hidden';
+      danmuEle.querySelector('#danmu-content').style.border = '';
+      danmuEle.querySelector('#danmu-content').style.borderRight = '';
+    });
+
+    // 阻断点击事件穿透
+    danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
+    danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
+
+    // 控制功能 - 字号大小
+    function fontSizeChange(change) {
+      setLocal({ fontSize: Math.max(0, configs.fontSize + change) });
+      eleRefresh(danmuEle);
+    };
+    danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', () => fontSizeChange(1));
+    danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', () => fontSizeChange(-1));
+
+    // 控制功能 - 间隔大小
+    function gapChange(change) {
+      setLocal({ gap: configs.gap + change });
+      eleRefresh(danmuEle);
+    };
+    danmuEle.querySelector('#danmu-gap-add').addEventListener('click', () => gapChange(1));
+    danmuEle.querySelector('#danmu-gap-minus').addEventListener('click', () => gapChange(-1));
+
+    // 控制功能 - 高度
+    danmuEle.querySelector('#danmu-height-add').addEventListener('click', () => {
+      setLocal({ maxHeight: configs.maxHeight + 18 });
+      eleRefresh(danmuEle);
+    });
+    danmuEle.querySelector('#danmu-height-minus').addEventListener('click', () => {
+      setLocal({ maxHeight: Math.max(0, configs.maxHeight - 18) });
+      eleRefresh(danmuEle);
+      while (danmuEle.clientHeight > configs.maxHeight) {
+        let firstChatItem = danmuEle.querySelector('.danmu-item:first-child');
+        if (firstChatItem) firstChatItem.parentNode.removeChild(firstChatItem);
+      };
+    });
+
+    danmuEle.querySelector('#show-mode').addEventListener('click', () => {
+      setLocal({ showMode: (configs.showMode + 1) % Object.keys(modes).length });
+      danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
+      eleRefresh(danmuEle);
+    });
+
+    // 用户筛选相关功能
+    let namesChanged = false;
+    function settingSubmit() {
+      setLocal({
+        focusNames: danmuEle.querySelector('#danmu-focus-names').value.split('\n').filter(item => item.trim()),
+        highlightNames: danmuEle.querySelector('#danmu-highlight-names').value.split('\n').filter(item => item.trim()),
+        blockNames: danmuEle.querySelector('#danmu-block-names').value.split('\n').filter(item => item.trim()),
+      });
+      danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+      namesChanged = false;
     }
-  }, 500);
+    danmuEle.querySelector('#danmu-settings').addEventListener('click', () => {
+      if (danmuEle.querySelector('#danmu-pop-board').style.display == 'block') {
+        settingSubmit();
+      } else {
+        eleRefresh(danmuEle, true);
+        danmuEle.querySelector('#danmu-pop-board').style.display = 'block';
+      };
+    });
+    danmuEle.querySelector('#danmu-pop-board-cancel').addEventListener('click', () => {
+      if (namesChanged) {
+        if (confirm('名字列表有修改，是否丢弃这些修改？')) {
+          danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+          eleRefresh(danmuEle);
+          namesChanged = false;
+        } else return;
+      } else {
+        danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+        eleRefresh(danmuEle);
+      }
+    });
+
+    danmuEle.querySelector('#danmu-pop-board-submit').addEventListener('click', e => settingSubmit());
+    danmuEle.querySelector('#danmu-is-focus-names').addEventListener('change', event => {
+      setLocal({ isFocusNames: event.target.checked });
+      eleRefresh(danmuEle);
+    });
+    danmuEle.querySelector('#danmu-is-highlight-names').addEventListener('change', event => {
+      setLocal({ isHighlightNames: event.target.checked });
+      eleRefresh(danmuEle);
+    });
+    danmuEle.querySelector('#danmu-is-block-names').addEventListener('change', event => {
+      setLocal({ isBlockNames: event.target.checked });
+      eleRefresh(danmuEle);
+    });
+    danmuEle.querySelector('#danmu-focus-names').addEventListener('change', () => { namesChanged = true });
+    danmuEle.querySelector('#danmu-highlight-names').addEventListener('change', () => { namesChanged = true });
+    danmuEle.querySelector('#danmu-block-names').addEventListener('change', () => { namesChanged = true });
+
+    // 鼠标右边缘箭头
+    danmuEle.addEventListener('mousemove', function (event) {
+      const rect = danmuEle.getBoundingClientRect();
+      const offset = 10; // 边缘区域的宽度
+      if (event.clientX <= rect.right && event.clientX >= rect.right - offset) {
+        danmuEle.style.cursor = 'ew-resize';
+      } else {
+        danmuEle.style.cursor = 'default';
+      }
+    });
+
+    // 鼠标拖宽度
+    danmuEle.addEventListener('mousedown', function (event) {
+      let doc = event.target.ownerDocument;
+      if (danmuEle.style.cursor === 'ew-resize') {
+        const startX = event.clientX;
+        const startWidth = danmuEle.offsetWidth;
+        function doDrag(e) {
+          danmuEle.style.width = startWidth + e.clientX - startX + 'px';
+          setLocal({ width: startWidth + e.clientX - startX });
+        }
+        function stopDrag() {
+          doc.removeEventListener('mousemove', doDrag);
+          doc.removeEventListener('mouseup', stopDrag);
+        }
+        doc.addEventListener('mousemove', doDrag);
+        doc.addEventListener('mouseup', stopDrag);
+      }
+    });
+
+    // 鼠标拖拽箭头
+    danmuEle.querySelector('#danmu-ctrl').style.cursor = 'grab';
+    // 拖拽动作
+    danmuEle.querySelector('#danmu-ctrl').addEventListener('mousedown', drag);
+    function drag(e) {
+      let doc = e.target.ownerDocument;
+      e.stopPropagation();
+      e.preventDefault();
+      let shiftX = e.clientX - danmuEle.getBoundingClientRect().left // + videoRect().left;
+      let shiftY = e.clientY - danmuEle.getBoundingClientRect().top // + videoRect().top;
+      function moveAt(pageX, pageY) {
+        danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+        danmuEle.style.top = pageY - shiftY + 'px';
+        danmuEle.style.left = pageX - shiftX + 'px';
+        configs.top = pageY - shiftY;
+        configs.left = pageX - shiftX;
+        setLocal();
+      }
+      function onMouseMove(event) {
+        moveAt(event.pageX, event.pageY);
+      }
+      doc.addEventListener('mousemove', onMouseMove);
+
+      doc.addEventListener('mouseup', function () {
+        doc.removeEventListener('mousemove', onMouseMove);
+        doc.onmouseup = null;
+      }, { once: true });
+    }
+    return danmuEle;
+  };
+
+  // 获取聊天内容 小米（改
+  let lastUserName;
+  function digestYtChatDom(dom) {
+    const userPhotoElement = dom.querySelector("#author-photo #img");
+    const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
+    const contentElement = dom.querySelector("#message");
+    const content = contentElement ? contentElement.innerHTML : '';
+    let usernameElement = dom.querySelector("#author-name");
+    let username = usernameElement ? usernameElement.innerHTML : '';
+    if (!username) return;
+    if (configs.isFocusNames && !configs.focusNames.includes(username)) return;
+    if (configs.isBlockNames && configs.blockNames.includes(username)) return;
+    if (username && username.indexOf("<") > -1) {
+      username = username.substring(0, username.indexOf("<")).trim();
+    }
+    if (lastUserName == username) return;
+    lastUserName = username;
+    const svgElements = dom.querySelectorAll("#author-name svg, #chat-badges svg");
+    svgElements.forEach((e) => username += e.outerHTML);
+    let el = videoDoc.createElement('div');
+    el.className = 'danmu-item';
+    if (configs.isHighlightNames && configs.highlightNames.includes(username)) el.className += ' danmu-highlight';
+    let color = '';
+    if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
+      username = "(SC) " + username;
+      color = getComputedStyle(dom).getPropertyValue("--yt-live-chat-paid-message-primary-color");
+      color = `style="color: ${color}"`;
+    }
+    el.innerHTML += `${userphoto}`;
+    let separator = content ? ' ' : '';
+    el.innerHTML += `<span class="danmu-username-long" ${color}>${username + separator}</span>`;
+    el.innerHTML += `<span class="danmu-username-short" ${color}>${username.substring(0, 1) + separator}</span>`;
+    el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
+    console.log(el.outerHTML);
+    return el;
+  };
 };
 
-/*
-// ！！！@grant 按钮会有 bug！！！跟 jquery 冲突
-// 油猴按钮，控制整个是否显示
-try { disableCheck(danmuParams.ifDisable) } catch { };
-let ifDisableMenuId;
-function disableCheck(ifDisable) {
-danmuEle.style.display = ifDisable ? 'none' : 'block';
-setLocal({ ifDisable });
-GM_unregisterMenuCommand(ifDisableMenuId);
-ifDisableMenuId = GM_registerMenuCommand((ifDisable ? '显示' : '隐藏') + '弹幕框', () => {
-  danmuParams.ifDisable = !ifDisable;
-  disableCheck(danmuParams.ifDisable);
-});
-}
-
-// 是否显示用户名
-try { showUsername(danmuParams.showUsername) } catch { };
-let showUsernameMenuId;
-function showUsername(showUsername) {
-// 【】
-setLocal({ showUsername });
-GM_unregisterMenuCommand(showUsernameMenuId);
-showUsernameMenuId = GM_registerMenuCommand((showUsername ? '隐藏' : '显示') + '用户名', () => {
-  danmuParams.showUsername = !showUsername;
-  showUsername(danmuParams.showUsername);
-});
-};
-
-// 元素按钮，控制下方弹幕是否显示
-danmuEle.querySelector('#danmu-hide').addEventListener('click', toggleDanmuShow);
-function toggleDanmuShow() {
-danmuEle.querySelector('#danmu-hide').innerText = danmuParams.ifShow ? '显示' : '隐藏';
-danmuParams.ifShow = !danmuParams.ifShow;
-danmuEle.querySelector('#danmu-content').style.display = danmuParams.ifShow ? 'block' : 'none';
-}
-
-danmuEle.querySelector('#danmu-ctrl').style.removeProperty('visibility');
-<span id="danmu-drag" style="white-space: nowrap; text-align: right;">🤚 拖拽 ☩</div>
-<div id="danmu-drag" class="danmuCtrl" style="white-space: nowrap; text-align: right; font-size:1.8em">拖拽 ☩</div>
-danmuEle.querySelector('#danmu-drag').style.visibility = 'visible';
-danmuEle.querySelector('#danmu-drag').style.visibility = 'visible';
-danmuEle.querySelector('#danmu-drag').style.visibility = 'hidden';
-danmuEle.querySelector('#danmu-drag').addEventListener('click', event => event.stopPropagation());
-danmuEle.querySelector('#danmu-drag').addEventListener('dblclick', event => event.stopPropagation());
-let videoElement = () => document.querySelectorAll('video')[0];
-if (!videoElement()) return; // 外部播放器探测
-let videoRect = () => videoElement().getBoundingClientRect(); // videoRect()
-let widthBase = () => document.documentElement.clientWidth; // videoRect().width
-window.addEventListener('resize', () => adjustDanmuEle(danmuEle));
-window.addEventListener('scroll', () => adjustDanmuEle(danmuEle));
-<span>&nbsp;&nbsp;&nbsp;&nbsp;拖拽｜拉宽&nbsp;</span>
-*/
-
-// 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
+// console.log('YouTube 悬浮弹幕');
