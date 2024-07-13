@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.3
+// @version      0.1.4
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
-// @grant        none
+// @grant        GM_registerMenuCommand
 // @license MIT
+// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
+// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
 // ==/UserScript==
 
 // ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
@@ -24,7 +26,7 @@ let configs;
 getLocal();
 function getLocal() {
   const defaultConfigs = {
-    showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528, gap: 3,
+    showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528, gap: 3, transparent: 0.58,
     focusNames: [], highlightNames: [], blockNames: [],
     isFocusNames: false, isHighlightNames: false, isBlockNames: false,
   };
@@ -41,6 +43,8 @@ function getLocal() {
 function setLocal(params) {
   localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
+
+GM_registerMenuCommand("重置位置", () => setLocal({ top: 88, left: 58, maxHeight: 528, width: 528 }));
 
 function checkHeight(danmuEle) {
   function childBottom() {
@@ -70,8 +74,8 @@ function setStyle(danmuEle) {
   }
   let baseStyle = `
   .danmu-highlight {
-    border: solid 1.8px rgba(255,191,0,0.8);
-    box-shadow: inset 0 0 ${configs.gap + configs.fontSize / 3}px rgba(255, 191, 0, 0.8); /* 内发光效果 */
+    border: solid 1.8px rgba(255, 191, 0, 1.8);
+    box-shadow: inset 0 0 ${configs.gap + configs.fontSize / 2}px rgba(255, 191, 0, 0.8); /* 内发光效果 */
   }
   #danmu-ele {
     position: absolute;
@@ -109,7 +113,7 @@ function setStyle(danmuEle) {
     color: rgb(200,200,200);
   }
   .danmu-item {
-    background-color: rgba(0, 0, 0, 0.58);
+    background-color: rgba(0, 0, 0, ${configs.transparent});
     border-radius: ${configs.gap / 2.8 + 0.8}px;
     padding: ${configs.gap}px ${configs.gap * 1.5}px;
     display: inline-block;
@@ -166,17 +170,17 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=') || location.hre
         clearInterval(timer);
         return;
       }
-      if(document.querySelector('#chat-container iframe')){ // 检测到iframe
-          try {
-        let danmuEle = getDanmuEle();
-        danmuEle.danmuurl = videoDoc.URL;
-        document.querySelector('body').appendChild(danmuEle)
-      } catch { };
+      if (document.querySelector('#chat-container iframe')) { // 检测到iframe
+        try {
+          let danmuEle = getDanmuEle();
+          danmuEle.danmuurl = videoDoc.URL;
+          document.querySelector('body').appendChild(danmuEle)
+        } catch { };
       }
     }, 888);
-    setTimeout(()=>{
-        clearInterval(timer);
-    },28888) // 半分钟没检测到iframe，放弃
+    setTimeout(() => {
+      clearInterval(timer);
+    }, 28888) // 半分钟没检测到iframe，放弃
   }
   // 监听页面跳转事件
   (function (history) {
@@ -218,29 +222,39 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   } else {
     document.addEventListener("DOMContentLoaded", main);
   };
-
   function main() {
     let danmuEle = parent.document.querySelector("#danmu-ele");
-    let timer = setInterval(() => {
-      let ytbChatEle = document.querySelector('#item-offset');
-      if (!ytbChatEle) return;
-      clearInterval(timer);
-      let observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-          mutation.addedNodes.forEach(node => {
-            if (!danmuEle) danmuEle = parent.document.querySelector("#danmu-ele");
-            if (!danmuEle) return;
-            if (node.nodeType !== 1 || node.tagName.toLowerCase() !== 'yt-live-chat-text-message-renderer') return;
-            let el = digestYtChatDom(node);
-            if (!el) return
-            // console. log(danmuEle.querySelector('#danmu-content'));
-            danmuEle.querySelector('#danmu-content').appendChild(el);
-            checkHeight(danmuEle);
-          });
+    let labelText = document.querySelector('#label-text').innerText;
+    let config = { childList: true, subtree: true };
+    let observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (!danmuEle) danmuEle = parent.document.querySelector("#danmu-ele");
+          if (!danmuEle) return;
+          if (node.nodeType !== 1) return;
+          if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
+          let el = digestYtChatDom(node);
+          if (!el) return
+          // console. log(danmuEle.querySelector('#danmu-content'));
+          danmuEle.querySelector('#danmu-content').appendChild(el);
+          checkHeight(danmuEle);
         });
       });
-      let config = { childList: true, subtree: true };
-      observer.observe(ytbChatEle, config);
+    });
+    observeDanmu();
+    function observeDanmu() {
+      let timer = setInterval(() => {
+        let ytbChatEle = document.querySelector('#item-offset');
+        if (!ytbChatEle) return;
+        clearInterval(timer);
+        observer.observe(ytbChatEle, config);
+      }, 888);
+    }
+    setInterval(() => {
+      if (labelText != document.querySelector('#label-text').innerText) {
+        labelText = document.querySelector('#label-text').innerText;
+        observeDanmu();
+      }
     }, 888);
   };
 };
@@ -273,9 +287,11 @@ function digestYtChatDom(dom) {
   }
   el.innerHTML += `${userphoto}`;
   let separator = content ? '：' : '';
-  el.innerHTML += `<span class="danmu-username-long" ${color}>${username + separator}</span>`;
-  el.innerHTML += `<span class="danmu-username-short" ${color}>${username.substring(0, 1) + separator}</span>`;
-  el.innerHTML += '<span class="danmu-badge"></span>';
+  el.innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
+    + `</span>${separator}</span>`;
+  el.innerHTML +=
+    `<span class="danmu-username-short" ${color}>${username.substring(0, 1)}<span class="danmu-badge">`
+    + `</span>${separator}</span>`;
   el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
   setTimeout(() => {
     if (el.querySelector('img').src.startsWith('data')) {
@@ -299,8 +315,7 @@ function digestYtChatDom(dom) {
 function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle = danmuEle || videoDoc.querySelector('#danmu-ele');
   if (!danmuEle) return;
-  danmuEle.querySelector('#danmu-setting-status').innerText =
-    `${modes[configs.showMode]}${configs.isFocusNames ? '✅' : '❌'}`
+  danmuEle.querySelector('#danmu-setting-status').innerText = `${configs.isFocusNames ? '✅' : '❌'}`
     + `${configs.isHighlightNames ? '✅' : '❌'}${configs.isBlockNames ? '✅' : '❌'}`;
   danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
   danmuEle.querySelector('#danmu-fontsize').innerText = `字号${configs.fontSize}`;
@@ -325,12 +340,12 @@ function getDanmuEle() {
   danmuEle.id = 'danmu-ele';
   danmuEle.innerHTML = `
       <div id="danmu-ctrl" >
-        <button id="danmu-settings">设置</button>
+        <button id="danmu-settings">设置</button>&nbsp;
+        <button id="show-mode"></button>&nbsp;
         <span id="danmu-setting-status"></span>
       </div>
       <div id="danmu-content"></div>
       <div id="danmu-pop-board">
-        <button id="show-mode"></button>&nbsp;&nbsp;
         <span style="white-space: nowrap;">
           <span id="danmu-fontsize"></span>
           <button id="danmu-fontsize-add">+</button>
