@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.5
+// @version      0.1.6
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -304,16 +304,20 @@ function digestYtChatDom(dom) {
       el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
     }
     try {
-      let badge = dom.querySelector("yt-icon div");
+      let badge = dom.querySelector("yt-icon div").cloneNode(true);
       let path = badge.querySelector('path');
       if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
-        badge.style.width = '1em';
-        badge.style.display = 'inline-block';
-        badge.style.color = 'lightyellow';
-        el.querySelector('.danmu-badge').appendChild(badge);
+        if(1) {
+          badge.style.width = '1em';
+          badge.style.display = 'inline-block';
+          badge.style.color = 'lightyellow';
+          el.querySelector('.danmu-badge').appendChild(badge);
+        } else if(1) {
+          el.querySelector('.danmu-badge').innerText = '🔧';
+        }
       }
     } catch (e) { }
-  }, 88)
+  }, 588)
   return el;
 };
 
