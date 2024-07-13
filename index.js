@@ -372,12 +372,12 @@ function getDanmuEle() {
       </span>&nbsp;&nbsp;
       <span style="white-space: nowrap;">
         <input type="checkbox" id="danmu-single-line">
-        单行
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
+        单行&nbsp;&nbsp;
+      </span>
+      <span style="white-space: nowrap; display: none">
         <input type="checkbox" id="danmu-wrap">
-        满行
-      </span>&nbsp;&nbsp;
+        满行&nbsp;&nbsp;
+      </span>
       <span style="white-space: nowrap;">
         <span id="danmu-gap"></span>
         <button id="danmu-gap-add">+</button>
