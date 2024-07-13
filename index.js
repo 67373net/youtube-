@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.7
+// @version      0.1.8
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -266,7 +266,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
 
 // 获取聊天内容 小米（改
 // let lastUserName;
-const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name);
+const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name.toLowerCase());
 function digestYtChatDom(dom) {
   const userPhotoElement = dom.querySelector("#author-photo #img");
   const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
