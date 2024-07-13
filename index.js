@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.6
+// @version      0.1.7
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -307,12 +307,12 @@ function digestYtChatDom(dom) {
       let badge = dom.querySelector("yt-icon div").cloneNode(true);
       let path = badge.querySelector('path');
       if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
-        if(1) {
+        if (1) {
           badge.style.width = '1em';
           badge.style.display = 'inline-block';
           badge.style.color = 'lightyellow';
           el.querySelector('.danmu-badge').appendChild(badge);
-        } else if(1) {
+        } else if (1) {
           el.querySelector('.danmu-badge').innerText = '🔧';
         }
       }
@@ -502,14 +502,14 @@ function getDanmuEle() {
     danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
   };
   function settingCancel() {
-    let namesChanged = false;
-    if (danmuEle.querySelector('#danmu-focus-names').value.split('\n').filter(item => item.trim())
-      != configs.focusNames) namesChanged = true;
-    if (danmuEle.querySelector('#danmu-highlight-names').value.split('\n').filter(item => item.trim())
-      != configs.highlightNames) namesChanged = true;
-    if (danmuEle.querySelector('#danmu-block-names').value.split('\n').filter(item => item.trim())
-      != configs.blockNames) namesChanged = true;
-
+    function different(a, b) {
+      a = danmuEle.querySelector(a).value.split('\n').filter(item => item.trim())
+      a = JSON.stringify(a);
+      if (a != JSON.stringify(b)) return true;
+    }
+    let namesChanged = different('#danmu-focus-names', configs.focusNames)
+      || different('#danmu-highlight-names', configs.highlightNames)
+      || different('#danmu-block-names', configs.blockNames);
     if (namesChanged) {
       if (confirm('名字列表有修改，是否丢弃这些修改？')) {
         danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
