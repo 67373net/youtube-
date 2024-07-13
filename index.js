@@ -44,7 +44,16 @@ function setLocal(params) {
   localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
 
-GM_registerMenuCommand("重置位置", () => setLocal({ top: 88, left: 58, maxHeight: 528, width: 528 }));
+GM_registerMenuCommand("重置位置", () => {
+  let defaultPosition = { top: 88, left: 58, maxHeight: 528, width: 528 }
+  setLocal(defaultPosition)
+  let danmuEle = videoDoc.querySelector('#danmu-ele');
+  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight+ 'px';
+  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight+ 'px';
+  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+  for(let i in defaultPosition) defaultPosition[i] = defaultPosition[i] + 'px';
+  Object.assign(danmuEle.style, defaultPosition);
+});
 
 function checkHeight(danmuEle) {
   function childBottom() {
@@ -102,7 +111,7 @@ function setStyle(danmuEle) {
     padding: 18px;
     border: 1px solid #ccc;
     color: black;
-    font-size: 1.8em;
+    font-size: 1.58em;
   }
   #danmu-content {
     font-size: ${configs.fontSize}px;
@@ -224,7 +233,6 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   };
   function main() {
     let danmuEle = parent.document.querySelector("#danmu-ele");
-    let labelText = document.querySelector('#label-text').innerText;
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -234,8 +242,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           if (node.nodeType !== 1) return;
           if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
           let el = digestYtChatDom(node);
-          if (!el) return
-          // console. log(danmuEle.querySelector('#danmu-content'));
+          if (!el) return;
           danmuEle.querySelector('#danmu-content').appendChild(el);
           checkHeight(danmuEle);
         });
@@ -244,23 +251,19 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     observeDanmu();
     function observeDanmu() {
       let timer = setInterval(() => {
-        let ytbChatEle = document.querySelector('#item-offset');
+        // let ytbChatEle = document.querySelector('#item-offset');
+        let ytbChatEle = document.querySelector('#contents.style-scope.yt-live-chat-app');
         if (!ytbChatEle) return;
         clearInterval(timer);
         observer.observe(ytbChatEle, config);
       }, 888);
     }
-    setInterval(() => {
-      if (labelText != document.querySelector('#label-text').innerText) {
-        labelText = document.querySelector('#label-text').innerText;
-        observeDanmu();
-      }
-    }, 888);
   };
 };
 
 // 获取聊天内容 小米（改
 // let lastUserName;
+const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name);
 function digestYtChatDom(dom) {
   const userPhotoElement = dom.querySelector("#author-photo #img");
   const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
@@ -269,8 +272,8 @@ function digestYtChatDom(dom) {
   let usernameElement = dom.querySelector("#author-name");
   let username = usernameElement ? usernameElement.innerHTML : '';
   if (!username) return;
-  if (configs.isFocusNames && !configs.focusNames.includes(username)) return;
-  if (configs.isBlockNames && configs.blockNames.includes(username)) return;
+  if (configs.isFocusNames && !hasName(username, configs.focusNames)) return;
+  if (configs.isBlockNames && hasName(username, configs.blockNames)) return;
   if (username && username.indexOf("<") > -1) {
     username = username.substring(0, username.indexOf("<")).trim();
   }
@@ -278,7 +281,7 @@ function digestYtChatDom(dom) {
   // lastUserName = username;
   let el = videoDoc.createElement('div');
   el.className = 'danmu-item';
-  if (configs.isHighlightNames && configs.highlightNames.includes(username)) el.className += ' danmu-highlight';
+  if (configs.isHighlightNames && hasName(username, configs.highlightNames)) el.className += ' danmu-highlight';
   let color = '';
   if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
     username = "(SC) " + username;
@@ -320,6 +323,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
   danmuEle.querySelector('#danmu-fontsize').innerText = `字号${configs.fontSize}`;
   danmuEle.querySelector('#danmu-gap').innerText = `间距${configs.gap}`;
+  danmuEle.querySelector('#danmu-transparent').innerText = `透明${configs.transparent}`;
   danmuEle.querySelector('#danmu-height').innerText = `高度${configs.maxHeight}`;
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
@@ -355,6 +359,11 @@ function getDanmuEle() {
           <span id="danmu-gap"></span>
           <button id="danmu-gap-add">+</button>
           <button id="danmu-gap-minus">-</button>
+        </span>&nbsp;&nbsp;
+        <span style="white-space: nowrap;">
+          <span id="danmu-transparent"></span>
+          <button id="danmu-transparent-add">+</button>
+          <button id="danmu-transparent-minus">-</button>
         </span>&nbsp;&nbsp;
         <span style="white-space: nowrap;">
           <span id="danmu-height"></span>
@@ -411,7 +420,7 @@ function getDanmuEle() {
         danmuContentEl.style.borderImage = '';
         danmuContentEl.style.height = 'auto';
       }
-    }, 288)
+    }, 158)
   });
 
   // 阻断点击事件穿透 屏蔽
@@ -433,6 +442,30 @@ function getDanmuEle() {
   };
   danmuEle.querySelector('#danmu-gap-add').addEventListener('click', e => gapChange(1));
   danmuEle.querySelector('#danmu-gap-minus').addEventListener('click', e => gapChange(-1));
+
+  // 控制功能 - 透明度
+  let transparentTimerI, transparentTimerT;
+  function transparentChange(change) {
+    change = Math.round(100 * (configs.transparent + change)) / 100;
+    setLocal({ transparent: change });
+    eleRefresh(danmuEle);
+  };
+  function transparentMouseDown(change) {
+    transparentChange(change);
+    transparentTimerT = setTimeout(() => {
+      transparentTimerI = setInterval(() => {
+        transparentChange(change);
+      }, 88)
+    }, 888);
+    videoDoc.addEventListener('mouseup', transparentMouseStop);
+  };
+  function transparentMouseStop() {
+    clearInterval(transparentTimerI);
+    clearTimeout(transparentTimerT);
+    videoDoc.removeEventListener('mouseup', transparentMouseStop);
+  }
+  danmuEle.querySelector('#danmu-transparent-add').addEventListener('mousedown', e => transparentMouseDown(0.01));
+  danmuEle.querySelector('#danmu-transparent-minus').addEventListener('mousedown', e => transparentMouseDown(-0.01));
 
   // 控制功能 - 高度
   function setHeight(num) {
@@ -507,11 +540,11 @@ function getDanmuEle() {
     const rect = danmuContentEl.getBoundingClientRect();
     const offset = 10;
     if (event.clientX <= rect.right && event.clientX >= rect.right - offset &&
-      event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
+        event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       danmuContentEl.style.cursor = 'nwse-resize'; // 右下
       mouseStatus = { width: 1, height: 1, left: 0 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset &&
-      event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
+               event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       danmuContentEl.style.cursor = 'nesw-resize'; // 左下
       mouseStatus = { width: -1, height: 1, left: 1 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset) {
