@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.9
+// @version      0.1.10
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -14,9 +14,6 @@
 // ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
 // 如果有 bug，在上面网站也可以找到反馈联系方式
 
-// 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
-// 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
-
 // ✴️ 通用
 localStorage.removeItem('danmuParams'); // 清除旧版数据;
 
@@ -24,7 +21,8 @@ const videoDoc = parent.document.querySelector('video').ownerDocument;
 const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
 let configs;
 const defaultConfigs = {
-  showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528, gap: 3, transparent: 0.58,
+  showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528,
+  gap: 3, transparent: 0.58, singleLine: false, wrap: false,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
@@ -64,7 +62,7 @@ function checkHeight(danmuEle) {
   }
   const fatherBottom = () => danmuEle.getBoundingClientRect().bottom;
   // console. log(childBottom() , fatherBottom());
-  while (childBottom() > fatherBottom() /* || childBottom() > videoDoc.defaultView.innerHeight */) {
+  while (childBottom() > fatherBottom() + 5 /* || childBottom() > videoDoc.defaultView.innerHeight */) {
     let children = danmuEle.querySelectorAll('.danmu-item');
     if (children.length == 0) break;
     let isRemove = [];
@@ -84,6 +82,9 @@ function setStyle(danmuEle) {
     floatDanmuStyle.id = 'float-danmu-style';
     document.head.appendChild(floatDanmuStyle);
   }
+  let danmuItemDisplay = configs.singleLine ? 'block' : (configs.wrap ? 'inline' : 'inline-block');
+  let danmuItemLineHeight = (!configs.singleLine && configs.wrap)
+    ? `line-height: ${1.28 * configs.fontSize + 2.18 * configs.gap}px` : '';
   let baseStyle = `
   .danmu-highlight {
     border: solid 1.8px rgba(255, 191, 0, 1.8);
@@ -125,11 +126,13 @@ function setStyle(danmuEle) {
     color: rgb(200,200,200);
   }
   .danmu-item {
+    width: fit-content;
     background-color: rgba(0, 0, 0, ${configs.transparent});
     border-radius: ${configs.gap / 2.8 + 0.8}px;
     padding: ${configs.gap}px ${configs.gap * 1.5}px;
-    display: inline-block;
     margin: ${configs.gap / 5 + 0.5}px;
+    display: ${danmuItemDisplay};
+    ${danmuItemLineHeight};
   }
   .danmu-item img {
     border-radius: 888px;
@@ -307,13 +310,16 @@ function digestYtChatDom(dom) {
       let badge = dom.querySelector("yt-icon div").cloneNode(true);
       let path = badge.querySelector('path');
       if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
-        if (1) {
-          badge.style.width = '1em';
-          badge.style.display = 'inline-block';
-          badge.style.color = 'lightyellow';
-          el.querySelector('.danmu-badge').appendChild(badge);
-        } else if (1) {
-          el.querySelector('.danmu-badge').innerText = '🔧';
+        switch (1) {
+          case 0:
+            badge.style.width = '1em';
+            badge.style.display = 'inline-block';
+            badge.style.color = 'lightyellow';
+            el.querySelector('.danmu-badge').appendChild(badge);
+            break;
+          case 1:
+            el.querySelector('.danmu-badge').innerText = '🔧';
+            break;
         }
       }
     } catch (e) { }
@@ -332,6 +338,8 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-gap').innerText = `间距${configs.gap}`;
   danmuEle.querySelector('#danmu-transparent').innerText = `透明${configs.transparent}`;
   danmuEle.querySelector('#danmu-height').innerText = `高度${configs.maxHeight}`;
+  danmuEle.querySelector('#danmu-single-line').checked = configs.singleLine;
+  danmuEle.querySelector('#danmu-wrap').checked = configs.wrap;
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
   danmuEle.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
@@ -350,52 +358,60 @@ function getDanmuEle() {
   let danmuEle = document.createElement('div')
   danmuEle.id = 'danmu-ele';
   danmuEle.innerHTML = `
-      <div id="danmu-ctrl" >
-        <button id="danmu-settings">设置</button>&nbsp;
-        <button id="show-mode"></button>&nbsp;
-        <span id="danmu-setting-status"></span>
+    <div id="danmu-ctrl" >
+      <button id="danmu-settings">设置</button>&nbsp;
+      <button id="show-mode"></button>&nbsp;
+      <span id="danmu-setting-status"></span>
+    </div>
+    <div id="danmu-content"></div>
+    <div id="danmu-pop-board">
+      <span style="white-space: nowrap;">
+        <span id="danmu-fontsize"></span>
+        <button id="danmu-fontsize-add">+</button>
+        <button id="danmu-fontsize-minus">-</button>
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <input type="checkbox" id="danmu-single-line">
+        单行
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <input type="checkbox" id="danmu-wrap">
+        满行
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <span id="danmu-gap"></span>
+        <button id="danmu-gap-add">+</button>
+        <button id="danmu-gap-minus">-</button>
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <span id="danmu-transparent"></span>
+        <button id="danmu-transparent-add">+</button>
+        <button id="danmu-transparent-minus">-</button>
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <span id="danmu-height"></span>
+        <button id="danmu-height-add">+</button>
+        <button id="danmu-height-minus">-</button>
+      </span>&nbsp;&nbsp;
+      <div style="margin:0.28em 0">
+        <input type="checkbox" id="danmu-is-focus-names">
+        关注模式：只显示这些用户名的弹幕。每行一个。
       </div>
-      <div id="danmu-content"></div>
-      <div id="danmu-pop-board">
-        <span style="white-space: nowrap;">
-          <span id="danmu-fontsize"></span>
-          <button id="danmu-fontsize-add">+</button>
-          <button id="danmu-fontsize-minus">-</button>
-        </span>&nbsp;&nbsp;
-        <span style="white-space: nowrap;">
-          <span id="danmu-gap"></span>
-          <button id="danmu-gap-add">+</button>
-          <button id="danmu-gap-minus">-</button>
-        </span>&nbsp;&nbsp;
-        <span style="white-space: nowrap;">
-          <span id="danmu-transparent"></span>
-          <button id="danmu-transparent-add">+</button>
-          <button id="danmu-transparent-minus">-</button>
-        </span>&nbsp;&nbsp;
-        <span style="white-space: nowrap;">
-          <span id="danmu-height"></span>
-          <button id="danmu-height-add">+</button>
-          <button id="danmu-height-minus">-</button>
-        </span>&nbsp;&nbsp;
-        <div style="margin:0.28em 0">
-          <input type="checkbox" id="danmu-is-focus-names">
-          关注模式：只显示这些用户名的弹幕。每行一个。
-        </div>
-        <textarea id="danmu-focus-names" style="width: 100%; height: 128px"></textarea>
-        <div style="margin:0.28em 0">
-          <input type="checkbox" id="danmu-is-highlight-names">
-          高亮模式：这些用户名会高亮。
-        </div>
-        <textarea id="danmu-highlight-names" style="width: 100%; height: 128px"></textarea>
-        <div style="margin:0.28em 0">
-          <input type="checkbox" id="danmu-is-block-names">
-          屏蔽模式：这些用户名会被屏蔽。
-        </div>
-        <textarea id="danmu-block-names" style="width: 100%; height: 128px"></textarea>
-        <div style="height:0.5em"></div>
-        <button id="danmu-pop-board-cancel">取消</button>
-        <button id="danmu-pop-board-submit">确定</button>
-      </div>`;
+      <textarea id="danmu-focus-names" style="width: 100%; height: 128px"></textarea>
+      <div style="margin:0.28em 0">
+        <input type="checkbox" id="danmu-is-highlight-names">
+        高亮模式：这些用户名会高亮。
+      </div>
+      <textarea id="danmu-highlight-names" style="width: 100%; height: 128px"></textarea>
+      <div style="margin:0.28em 0">
+        <input type="checkbox" id="danmu-is-block-names">
+        屏蔽模式：这些用户名会被屏蔽。
+      </div>
+      <textarea id="danmu-block-names" style="width: 100%; height: 128px"></textarea>
+      <div style="height:0.5em"></div>
+      <button id="danmu-pop-board-cancel">取消</button>
+      <button id="danmu-pop-board-submit">确定</button>
+    </div>`;
   eleRefresh(danmuEle);
   let danmuContentEl = danmuEle.querySelector('#danmu-content');
 
@@ -441,6 +457,16 @@ function getDanmuEle() {
   };
   danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', e => fontSizeChange(1));
   danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', e => fontSizeChange(-1));
+
+  // 行显示模式
+  danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
+    setLocal({ singleLine: event.target.checked });
+    setStyle(danmuEle);
+  });
+  danmuEle.querySelector('#danmu-wrap').addEventListener('change', event => {
+    setLocal({ wrap: event.target.checked });
+    setStyle(danmuEle);
+  });
 
   // 控制功能 - 间距大小
   function gapChange(change) {
@@ -648,3 +674,5 @@ function getDanmuEle() {
 // 边缘测试：
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
+// 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
+// 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
