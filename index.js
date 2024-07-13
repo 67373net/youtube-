@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.4
+// @version      0.1.5
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -48,10 +48,10 @@ GM_registerMenuCommand("重置位置", () => {
   let defaultPosition = { top: 88, left: 58, maxHeight: 528, width: 528 }
   setLocal(defaultPosition)
   let danmuEle = videoDoc.querySelector('#danmu-ele');
-  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight+ 'px';
-  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight+ 'px';
+  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
   danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-  for(let i in defaultPosition) defaultPosition[i] = defaultPosition[i] + 'px';
+  for (let i in defaultPosition) defaultPosition[i] = defaultPosition[i] + 'px';
   Object.assign(danmuEle.style, defaultPosition);
 });
 
@@ -65,12 +65,15 @@ function checkHeight(danmuEle) {
   const fatherBottom = () => danmuEle.getBoundingClientRect().bottom;
   // console. log(childBottom() , fatherBottom());
   while (childBottom() > fatherBottom() /* || childBottom() > videoDoc.defaultView.innerHeight */) {
-    let firstChatItem = danmuEle.querySelector('.danmu-item:first-child');
-    if (firstChatItem) {
-      firstChatItem.parentNode.removeChild(firstChatItem);
-    } else {
-      break;
+    let children = danmuEle.querySelectorAll('.danmu-item');
+    if (children.length == 0) break;
+    let isRemove = [];
+    for (let i = 0; i < children.length; i++) {
+      isRemove[i] = children[i].getBoundingClientRect().top <= children[0].getBoundingClientRect().top + 5;
     }
+    isRemove.map((item, i) => {
+      if (item) children[i].parentNode.removeChild(children[i]);
+    });
   }
 }
 
@@ -309,7 +312,7 @@ function digestYtChatDom(dom) {
         badge.style.color = 'lightyellow';
         el.querySelector('.danmu-badge').appendChild(badge);
       }
-    } catch (e) { console.log(e) }
+    } catch (e) { }
   }, 88)
   return el;
 };
@@ -486,7 +489,6 @@ function getDanmuEle() {
   });
 
   // 用户筛选相关功能
-  let namesChanged = false;
   function settingSubmit() {
     setLocal({
       focusNames: danmuEle.querySelector('#danmu-focus-names').value.split('\n').filter(item => item.trim()),
@@ -494,29 +496,37 @@ function getDanmuEle() {
       blockNames: danmuEle.querySelector('#danmu-block-names').value.split('\n').filter(item => item.trim()),
     });
     danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-    namesChanged = false;
-  }
+  };
+  function settingCancel() {
+    let namesChanged = false;
+    if (danmuEle.querySelector('#danmu-focus-names').value.split('\n').filter(item => item.trim())
+      != configs.focusNames) namesChanged = true;
+    if (danmuEle.querySelector('#danmu-highlight-names').value.split('\n').filter(item => item.trim())
+      != configs.highlightNames) namesChanged = true;
+    if (danmuEle.querySelector('#danmu-block-names').value.split('\n').filter(item => item.trim())
+      != configs.blockNames) namesChanged = true;
+
+    if (namesChanged) {
+      if (confirm('名字列表有修改，是否丢弃这些修改？')) {
+        danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+        eleRefresh(danmuEle);
+      } else return;
+    } else {
+      danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+      eleRefresh(danmuEle);
+    }
+  };
   danmuEle.querySelector('#danmu-settings').addEventListener('click', () => {
     if (danmuEle.querySelector('#danmu-pop-board').style.display == 'block') {
-      settingSubmit();
+      settingCancel();
     } else {
       eleRefresh(danmuEle, true);
       danmuEle.querySelector('#danmu-pop-board').style.display = 'block';
     };
   });
   danmuEle.querySelector('#danmu-pop-board-cancel').addEventListener('click', () => {
-    if (namesChanged) {
-      if (confirm('名字列表有修改，是否丢弃这些修改？')) {
-        danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-        eleRefresh(danmuEle);
-        namesChanged = false;
-      } else return;
-    } else {
-      danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-      eleRefresh(danmuEle);
-    }
+    settingCancel()
   });
-
   danmuEle.querySelector('#danmu-pop-board-submit').addEventListener('click', e => settingSubmit());
   danmuEle.querySelector('#danmu-is-focus-names').addEventListener('change', event => {
     setLocal({ isFocusNames: event.target.checked });
@@ -530,9 +540,6 @@ function getDanmuEle() {
     setLocal({ isBlockNames: event.target.checked });
     eleRefresh(danmuEle);
   });
-  danmuEle.querySelector('#danmu-focus-names').addEventListener('change', () => { namesChanged = true });
-  danmuEle.querySelector('#danmu-highlight-names').addEventListener('change', () => { namesChanged = true });
-  danmuEle.querySelector('#danmu-block-names').addEventListener('change', () => { namesChanged = true });
 
   // 鼠标边缘箭头
   let mouseStatus = { width: 0, height: 0, left: 0 };
@@ -540,11 +547,11 @@ function getDanmuEle() {
     const rect = danmuContentEl.getBoundingClientRect();
     const offset = 10;
     if (event.clientX <= rect.right && event.clientX >= rect.right - offset &&
-        event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
+      event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       danmuContentEl.style.cursor = 'nwse-resize'; // 右下
       mouseStatus = { width: 1, height: 1, left: 0 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset &&
-               event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
+      event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       danmuContentEl.style.cursor = 'nesw-resize'; // 左下
       mouseStatus = { width: -1, height: 1, left: 1 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset) {
