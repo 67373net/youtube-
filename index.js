@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.8
+// @version      0.1.9
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -23,23 +23,23 @@ localStorage.removeItem('danmuParams'); // 清除旧版数据;
 const videoDoc = parent.document.querySelector('video').ownerDocument;
 const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
 let configs;
+const defaultConfigs = {
+  showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528, gap: 3, transparent: 0.58,
+  focusNames: [], highlightNames: [], blockNames: [],
+  isFocusNames: false, isHighlightNames: false, isBlockNames: false,
+};
 getLocal();
+setInterval(getLocal, 1888); // 跨页面操作的时候，很容易数据不同步。
 function getLocal() {
-  const defaultConfigs = {
-    showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528, gap: 3, transparent: 0.58,
-    focusNames: [], highlightNames: [], blockNames: [],
-    isFocusNames: false, isHighlightNames: false, isBlockNames: false,
-  };
   const storedConfigs = JSON.parse(localStorage.getItem('danmuConfigs') || '{}');
   configs = Object.assign({}, defaultConfigs, storedConfigs);
-  for (let key in configs) {
-    if (!(key in defaultConfigs)) {
-      delete configs[key];
-    }
-  };
-  setLocal();
 };
-
+for (let key in configs) {
+  if (!(key in defaultConfigs)) {
+    delete configs[key];
+  }
+};
+setLocal();
 function setLocal(params) {
   localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
