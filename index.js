@@ -1,3 +1,28 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
@@ -90,41 +115,169 @@ function inBottom(danmuEle) {
   let children = danmuEle.querySelectorAll('.danmu-item');
   if (children.length == 0) return {};
   let child = children[children.length - 1];
-  return { children, notEmpty: true, bottom: child.getBoundingClientRect().bottom };
-}
-function outBottom(danmuEle) { return danmuEle.getBoundingClientRect().bottom };
+  let bottom = child.getBoundingClientRect().bottom;
+  let diff = bottom - danmuEle.getBoundingClientRect().bottom - 5;
+  return { notEmpty: true, children, bottom, diff };
+};
 
-let isCheckingHeight;
+let isCheckingHeight, delay = { sec: 2.88, div: 1 };
 function checkHeight(danmuEle) {
   if (isCheckingHeight) return;
   isCheckingHeight = true;
-  // 这里如果改为渐变模式，会死循环。在改动这里之前先保存一下
-  for (let b = inBottom(danmuEle); b.notEmpty && b.bottom > outBottom(danmuEle) + 5; b = inBottom(danmuEle)) {
-    b.children[0].danmuToRemove = true;
-    for (let i = 1; i < b.children.length; i++) {
-      if (b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5) {
-        b.children[i].danmuToRemove = true;
-        b.children[i].parentNode.removeChild(b.children[i]);
-      } else break;
-    }
-    // damnuRemove(danmuEle, b.bottom - outBottom(danmuEle));
-  }
-  isCheckingHeight = false;
-};
 
-function damnuRemove(danmuEle, diff) {
-  let children = danmuEle.querySelectorAll('.danmu-item');
-  if (children.length == 0) return;
-  let delay = 2;
-  for (let i = 0; i < children.length; i++) {
-    if (!children[i].danmuToRemove) break;
-    children[i].style.transition = `height ${delay}s;`
-    children[i].style.height = '0px';
-    setTimeout(() => {
-      children[i].parentNode.removeChild(children[i]);
-    }, delay * 1000);
+  let b = inBottom(danmuEle);
+  let firstLine, secondLine;
+  if (b.notEmpty && b.diff > 0) {
+    firstLine = [b.children[0]];
+    for (let i = 1; i < b.children.length; i++) {
+      if (b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 3) {
+        firstLine[i] = b.children[i];
+      } else {
+        secondLine = [b.children[i]];
+        for (let j = i + 1; j < b.children.length; j++) {
+          if (b.children[j].getBoundingClientRect().top <= b.children[i].getBoundingClientRect().top + 3) {
+            secondLine[j - i] = b.children[j];
+          } else break;
+        };
+        break;
+      };
+    }
   }
-}
+
+  function directRemove() {
+    firstLine.forEach(node => { if (node) node.parentNode.removeChild(node) });
+    isCheckingHeight = false;
+  }
+
+  if (firstLine) {
+    if (!secondLine) {
+      directRemove();
+      return;
+    };
+    let margin = Number(getComputedStyle(firstLine[0]).margin.replace('px', ''));
+    let baseHeight = margin + firstLine[0].getBoundingClientRect().height;
+    firstLine.forEach(node => { if (node) node.style.visibility = 'hidden' });
+    let speed = 0.05;
+    let scaleStart = 0.6;
+    let marginTop = margin;
+
+    transform();
+    // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
+    // height 和 tramsform 方案：
+    //   弃用，多个 div 位于一行时，高度设置没用，还是会挤住下面的元素，可能是 div 内部元素的问题。但懒得解决
+    // margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡？
+    function transform() {
+      let b = inBottom(danmuEle);
+      let timeout = 2.88 * speed / Math.max(1, 2 * Math.pow(b.diff / baseHeight, 2));
+      if (timeout < 0.02) scaleStart = timeout * 30;
+      marginTop -= baseHeight * speed;
+      if (marginTop <= margin-baseHeight) {
+        directRemove();
+        secondLine.forEach(node => { node.style.marginTop = `${margin}px` });
+        checkHeight(danmuEle);
+        return;
+      }
+      setTimeout(() => {
+        for (let i = 0; i < secondLine.length; i++) {
+          let node = secondLine[i];
+          if (node) node.style.marginTop = `${marginTop}px`;
+        };
+        transform();
+      }, timeout * 1000);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // function transform() {
+    //   let b = inBottom(danmuEle);
+    //   let timeout = 2.88 * speed / Math.max(1, 2 * Math.pow(b.diff / baseHeight, 2));
+    //   let scaleStart = 0.6;
+    //   if (timeout < 0.02) scaleStart = timeout * 30;
+    //   setTimeout(() => {
+
+
+    //     for (let i = 0; i < firstLine.length; i++) {
+    //       let node = firstLine[i];
+    //       try {
+    //         let scale = node.style.transform || `scaleY(${scaleStart})`;
+    //         scale = Number(scale.match(/scaleY\((.+)\)/)[1]) - speed;
+    //         if (scale <= 0) {
+    //           directRemove();
+    //           return;
+    //         }
+    //         let width = getComputedStyle(node).width;
+    //         node.innerHTML = `<div class="danmu-item" style = "width:${width}"></div>`;
+    //         console.log(node)
+    //         node.style.paddingTop = 0;
+    //         node.style.paddingBottom = 0;
+    //         node.style.marginTop = 0;
+    //         node.style.marginBottom = 0;
+    //         node.style.height = `${baseHeight * scale}px`;
+    //         // node.style.lineHight = `${baseHeight * scale}px`;
+    //         node.style.transform = `scaleY(${scale})`;
+    //       } catch (e) {
+    //         console.log(e);
+    //         directRemove();
+    //       };
+    //     }
+
+
+    //     transform()
+    //   }, timeout * 1000);
+    // }
+
+
+
+
+
+    // firstLine.forEach(node => { node.style.visibility = 'hidden' });
+    // let margin = getComputedStyle(firstLine[0]).margin.replace('px', '');
+    // let baseHeight = Number(margin) + firstLine[0].getBoundingClientRect().height;
+    // let div = 1 * Math.pow(b.diff / baseHeight, 1);
+    // delay.sec = Math.max(0.05, Math.min(2.88, delay.sec * Math.pow( delay.div / div,1.8)) );
+    // delay.div = div;
+    // secondLine.forEach(node => {
+    //   node.style.transition = `margin ${delay.sec}s`;
+    //   // node.offsetHeight; // Force a reflow to ensure the transition applies
+    //   node.style.marginTop = `${0 - baseHeight}px`;
+    // });
+    // setTimeout(() => {
+    //   secondLine.forEach(node => {
+    //     node.style.transition = ``;
+    //     // node.offsetHeight; // Force a reflow to ensure the transition applies
+    //     node.style.marginTop = `${margin}px`;
+    //   });
+    //   firstLine.forEach(node => node.parentNode.removeChild(node));
+    //   isCheckingHeight = false;
+    //   checkHeight(danmuEle);
+    // }, delay.sec * 1000);
+
+
+
+
+
+
+
+  } else {
+    isCheckingHeight = false;
+  };
+};
 
 // let isRemovingDanmu, removeTimer;
 // function damnuRemove(danmuEle) {
@@ -770,5 +923,6 @@ function getDanmuEle() {
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
 // 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
-// 测试地址 发：https://www.youtube.com/live/JCgaAocOMmw?si=nLCbDXoGgJj_MEHt&t=7118
-// 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
+// 测试地址
+// 慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
+// 快：https://www.youtube.com/live/5FUWAwWJrkQ?t=18195s
