@@ -7,8 +7,8 @@
 // @match        https://www.youtube.com/*
 // @grant        GM_registerMenuCommand
 // @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
-// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
+// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20悬浮弹幕.user.js
+// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20悬浮弹幕.meta.js
 // ==/UserScript==
 
 // ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
@@ -85,28 +85,94 @@ GM_registerMenuCommand("重置所有设置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
+
+function inBottom(danmuEle) {
+  let children = danmuEle.querySelectorAll('.danmu-item');
+  if (children.length == 0) return {};
+  let child = children[children.length - 1];
+  return { children, notEmpty: true, bottom: child.getBoundingClientRect().bottom };
+}
+function outBottom(danmuEle) { return danmuEle.getBoundingClientRect().bottom };
+
 let isCheckingHeight;
 function checkHeight(danmuEle) {
   if (isCheckingHeight) return;
   isCheckingHeight = true;
-  function inBottom() {
-    let children = danmuEle.querySelectorAll('.danmu-item');
-    if (children.length == 0) return {};
-    let child = children[children.length - 1];
-    return { children, notEmpty: true, bottom: child.getBoundingClientRect().bottom };
-  }
-  const outBottom = () => danmuEle.getBoundingClientRect().bottom;
-  for (let b = inBottom(); b.notEmpty && b.bottom > outBottom() + 5; b = inBottom()) {
-    let isRemove = [b.children[0]];
+  // 这里如果改为渐变模式，会死循环。在改动这里之前先保存一下
+  for (let b = inBottom(danmuEle); b.notEmpty && b.bottom > outBottom(danmuEle) + 5; b = inBottom(danmuEle)) {
+    b.children[0].danmuToRemove = true;
     for (let i = 1; i < b.children.length; i++) {
       if (b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5) {
-        isRemove[i] = b.children[i]
+        b.children[i].danmuToRemove = true;
+        b.children[i].parentNode.removeChild(b.children[i]);
       } else break;
     }
-    isRemove.map(item => item.parentNode.removeChild(item));
+    // damnuRemove(danmuEle, b.bottom - outBottom(danmuEle));
   }
   isCheckingHeight = false;
+};
+
+function damnuRemove(danmuEle, diff) {
+  let children = danmuEle.querySelectorAll('.danmu-item');
+  if (children.length == 0) return;
+  let delay = 2;
+  for (let i = 0; i < children.length; i++) {
+    if (!children[i].danmuToRemove) break;
+    children[i].style.transition = `height ${delay}s;`
+    children[i].style.height = '0px';
+    setTimeout(() => {
+      children[i].parentNode.removeChild(children[i]);
+    }, delay * 1000);
+  }
 }
+
+// let isRemovingDanmu, removeTimer;
+// function damnuRemove(danmuEle) {
+//   if (isRemovingDanmu) return;
+//   if (removeTimer) return;
+//   isRemovingDanmu = true;
+//   let notFinished = false;
+//   let b = inBottom(danmuEle);
+//   if (!b.notEmpty) {
+//     isRemovingDanmu = false;
+//     return;
+//   }
+//   let speed = 0.05;
+//   let danmuItemHeight = styleCalc().danmuItemHeight;
+//   let interval = Math.max(1, (b.bottom - outBottom(danmuEle)) / danmuItemHeight / 1.4) // 底部超出的行数估算
+//   interval = Math.floor(8888 * speed / interval) // 1588 秒完成一行
+//   for (let i = 0; i < b.children.length; i++) {
+//     if (b.children[i].danmuToRemove) {
+//       try {
+//         let scale = b.children[i].style.transform || 'scaleY(1)';
+//         scale = Number(scale.match(/scaleY\((.+)\)/)[1]) - speed;
+//         if (scale <= 0) b.children[i].parentNode.removeChild(b.children[i]);
+//         notFinished = true;
+//         b.children[i].style.height = `${danmuItemHeight * scale}px`;
+//         b.children[i].style.transform = `scaleY(${scale})`;
+//       } catch (e) {
+//         console.log(e);
+//         b.children[i].parentNode.removeChild(b.children[i]);
+//       }
+//     } else break;
+//   };
+//   isRemovingDanmu = false;
+//   console.log(interval);
+//   if (notFinished && !removeTimer) removeTimer = setTimeout(() => { damnuRemove(danmuEle) }, interval);
+//   if (!notFinished) {
+//     clearTimeout(removeTimer);
+//     removeTimer = undefined;
+//   }
+// };
+
+function styleCalc() {
+  let danmuItemPaddingTop = configs.gap;
+  let danmuItemMargin = configs.gap / 5 + 0.5;
+  return {
+    danmuItemPaddingTop, danmuItemMargin,
+    danmuItemHeight: configs.fontSize + danmuItemPaddingTop + danmuItemMargin
+  };
+};
 
 function setStyle() {
   let floatDanmuStyle = videoDoc.querySelector('#float-danmu-style');
@@ -162,8 +228,8 @@ function setStyle() {
     width: fit-content;
     background-color: rgba(0, 0, 0, ${configs.transparent});
     border-radius: ${configs.gap / 2.8 + 0.8}px;
-    padding: ${configs.gap}px ${configs.gap * 1.5}px;
-    margin: ${configs.gap / 5 + 0.5}px;
+    padding: ${styleCalc().danmuItemPaddingTop}px ${configs.gap * 1.5}px;
+    margin: ${styleCalc().danmuItemMargin}px;
     display: ${danmuItemDisplay};
     ${danmuItemLineHeight};
   }
@@ -200,7 +266,8 @@ function setStyle() {
 }
 
 // ✴️ 主页面
-if (location.href.startsWith('https://www.youtube.com/watch?v=') || location.href.startsWith('https://www.youtube.com/live/')) {
+if (location.href.startsWith('https://www.youtube.com/watch?v=')
+  || location.href.startsWith('https://www.youtube.com/live/')) {
   setStyle(); // 加 css 到 header
   danmuEleInit();
   function danmuEleInit() {
@@ -450,7 +517,8 @@ function getDanmuEle() {
       element.style.borderRight = '8px solid black';
       element.style.borderBottom = '8px solid black';
       element.style.borderLeft = '8px solid white';
-      element.style.borderImage = 'repeating-linear-gradient(45deg, black, black 5px, white 5px, white 10px) 1';
+      element.style.borderImage =
+        'repeating-linear-gradient(45deg, black, black 5px, white 5px, white 10px) 1';
     }
     addStripedBorder(danmuContentEl);
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
@@ -517,8 +585,10 @@ function getDanmuEle() {
     clearInterval(transparentTimerI);
     videoDoc.removeEventListener('mouseup', transparentMouseStop);
   }
-  danmuEle.querySelector('#danmu-transparent-add').addEventListener('mousedown', e => transparentMouseDown(0.01));
-  danmuEle.querySelector('#danmu-transparent-minus').addEventListener('mousedown', e => transparentMouseDown(-0.01));
+  danmuEle.querySelector('#danmu-transparent-add')
+    .addEventListener('mousedown', e => transparentMouseDown(0.01));
+  danmuEle.querySelector('#danmu-transparent-minus')
+    .addEventListener('mousedown', e => transparentMouseDown(-0.01));
 
   // 控制功能 - 高度
   function setHeight(num) {
@@ -540,9 +610,12 @@ function getDanmuEle() {
   // 用户筛选相关功能
   function settingSubmit() {
     setLocal({
-      focusNames: danmuEle.querySelector('#danmu-focus-names').value.split('\n').filter(item => item.trim()),
-      highlightNames: danmuEle.querySelector('#danmu-highlight-names').value.split('\n').filter(item => item.trim()),
-      blockNames: danmuEle.querySelector('#danmu-block-names').value.split('\n').filter(item => item.trim()),
+      focusNames: danmuEle.querySelector('#danmu-focus-names')
+        .value.split('\n').filter(item => item.trim()),
+      highlightNames: danmuEle.querySelector('#danmu-highlight-names')
+        .value.split('\n').filter(item => item.trim()),
+      blockNames: danmuEle.querySelector('#danmu-block-names')
+        .value.split('\n').filter(item => item.trim()),
     });
     danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
   };
@@ -643,7 +716,11 @@ function getDanmuEle() {
       videoDoc.body.style.webkitUserSelect = '';
       videoDoc.body.style.msUserSelect = '';
       videoDoc.body.style.mozUserSelect = '';
-      setLocal({ width: danmuContentEl.offsetWidth, maxHeight: danmuContentEl.offsetHeight, left: danmuEle.offsetLeft });
+      setLocal({
+        width: danmuContentEl.offsetWidth,
+        maxHeight: danmuContentEl.offsetHeight,
+        left: danmuEle.offsetLeft
+      });
       eleRefresh(danmuEle);
       doc.removeEventListener('mousemove', doDrag);
       doc.removeEventListener('mouseup', stopDrag);
