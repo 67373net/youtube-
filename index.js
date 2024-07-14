@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.11
+// @version      0.1.12
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -20,10 +20,10 @@ localStorage.removeItem('danmuParams'); // 清除旧版数据;
 const videoDoc = parent.document.querySelector('video').ownerDocument;
 const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
 let configs;
-const defaultPosition = 
+const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58};
 const defaultConfigs = {
-  ...defaultPosition, showMode: 0, 
+  ...defaultPosition, showMode: 0,
   singleLine: false, wrap: false,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
@@ -57,7 +57,24 @@ GM_registerMenuCommand("重置位置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
-GM_registerMenuCommand("重置所有设置（慎用）", () => {
+GM_registerMenuCommand("重置除了用户名外的所有设置", () => {
+  let oldConfigs = deepCopy(configs);
+  localStorage.removeItem('danmuConfigs');
+  getLocal();
+  setLocal({
+    focusNames: oldConfigs.focusNames,
+    highlightNames: oldConfigs.focusNames,
+    blockNames: oldConfigs.focusNames
+  });
+  const danmuEle = videoDoc.querySelector('#danmu-ele');
+  eleRefresh(danmuEle);
+  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+});
+
+
+GM_registerMenuCommand("重置所有设置", () => {
   localStorage.removeItem('danmuConfigs');
   getLocal();
   setLocal();
@@ -238,7 +255,7 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=') || location.hre
 
 // ✴️ 弹幕 iframe 页面
 if (location.href.startsWith('https://www.youtube.com/live_chat')) {
-  if (document.readyState == "complete" || document.readyState == "loaded" 
+  if (document.readyState == "complete" || document.readyState == "loaded"
     || document.readyState == "interactive") {
     main();
   } else {
@@ -259,7 +276,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           if (el) {
             danmuEle.querySelector('#danmu-content').appendChild(el);
             checkHeight(danmuEle);
-          };          
+          };
         });
       });
     });
@@ -279,13 +296,11 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     const contentElement = dom.querySelector("#message");
     const content = contentElement ? contentElement.innerHTML : '';
     let usernameElement = dom.querySelector("#author-name");
-    let username = usernameElement ? usernameElement.innerHTML : '';
+    let username = usernameElement ? usernameElement.innerHTML : ''; // 这里参照原有代码，就不改了
     if (!username) return;
+    username = username.match(/(.*?)</)[1];
     if (configs.isFocusNames && !hasName(username, configs.focusNames)) return;
     if (configs.isBlockNames && hasName(username, configs.blockNames)) return;
-    if (username && username.indexOf("<") > -1) {
-      username = username.substring(0, username.indexOf("<")).trim();
-    }
     let el = videoDoc.createElement('div');
     el.className = 'danmu-item';
     if (configs.isHighlightNames && hasName(username, configs.highlightNames)) el.className += ' danmu-highlight';
