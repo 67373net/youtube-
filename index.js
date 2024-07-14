@@ -255,15 +255,18 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=') || location.hre
 
 // ✴️ 弹幕 iframe 页面
 if (location.href.startsWith('https://www.youtube.com/live_chat')) {
+  let danmuEle = parent.document.querySelector("#danmu-ele");
   if (document.readyState == "complete" || document.readyState == "loaded"
     || document.readyState == "interactive") {
     main();
   } else {
     document.addEventListener("DOMContentLoaded", main);
   };
-  setInterval(getLocal, 1888); // 跨页面操作的时候，很容易数据不同步。
+  setInterval(() => {
+    getLocal(); // 父页面操作的时候，很容易数据不同步。
+    if(danmuEle) checkHeight(danmuEle); // 从下面改到上面了，因为如果拖进度条，有可能瞬间执行一百多次
+  }, 1888);
   function main() {
-    let danmuEle = parent.document.querySelector("#danmu-ele");
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -273,10 +276,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           if (node.nodeType !== 1) return;
           if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
           let el = digestYtChatDom(node);
-          if (el) {
-            danmuEle.querySelector('#danmu-content').appendChild(el);
-            checkHeight(danmuEle);
-          };
+          if (el) danmuEle.querySelector('#danmu-content').appendChild(el);
         });
       });
     });
@@ -319,7 +319,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
       + `</span>${separator}</span>`;
     el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
     setTimeout(() => {
-      if (el.querySelector('img').src.startsWith('data')) {
+      if (el.querySelector('img')?.src?.startsWith('data')) {
         el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
       }
       try {
@@ -526,7 +526,6 @@ function getDanmuEle() {
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
     danmuContentEl.style.maxHeight = `${configs.maxHeight}px`;
     eleRefresh(danmuEle);
-    checkHeight(danmuEle);
   }
   danmuEle.querySelector('#danmu-height-add').addEventListener('click', e => setHeight(18));
   danmuEle.querySelector('#danmu-height-minus').addEventListener('click', e => setHeight(-18));
@@ -694,4 +693,5 @@ function getDanmuEle() {
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
 // 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
+// 测试地址 发：https://www.youtube.com/watch?v=m8nButUrSYk
 // 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
