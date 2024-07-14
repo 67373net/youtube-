@@ -21,7 +21,7 @@ const videoDoc = parent.document.querySelector('video').ownerDocument;
 const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
 let configs;
 const defaultPosition =
-  { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58};
+  { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
   ...defaultPosition, showMode: 0,
   singleLine: false, wrap: false,
@@ -86,23 +86,21 @@ GM_registerMenuCommand("重置所有设置", () => {
 });
 
 function checkHeight(danmuEle) {
-  function childBottom() {
+  function inBottom() {
     let children = danmuEle.querySelectorAll('.danmu-item');
-    if (children.length == 0) return 0;
+    if (children.length == 0) return {};
     let child = children[children.length - 1];
-    return child.getBoundingClientRect().bottom;
+    return { children, notEmpty: true, bottom: child.getBoundingClientRect().bottom };
   }
-  const fatherBottom = () => danmuEle.getBoundingClientRect().bottom;
-  // console. log(childBottom() , fatherBottom());
-  while (childBottom() > fatherBottom() + 5 /* || childBottom() > videoDoc.defaultView.innerHeight */) {
-    let children = danmuEle.querySelectorAll('.danmu-item');
-    if (children.length == 0) break;
+  const outBottom = () => danmuEle.getBoundingClientRect().bottom;
+  for (let b = inBottom(); b.notEmpty && b.bottom > outBottom() + 5; b = inBottom()) {
     let isRemove = [];
-    for (let i = 0; i < children.length; i++) {
-      isRemove[i] = children[i].getBoundingClientRect().top <= children[0].getBoundingClientRect().top + 5;
+    for (let i = 0; i < b.children.length; i++) {
+      isRemove[i] =
+        b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5;
     }
     isRemove.map((item, i) => {
-      if (item) children[i].parentNode.removeChild(children[i]);
+      if (item) b.children[i].parentNode.removeChild(children[i]);
     });
   }
 }
@@ -264,7 +262,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   };
   setInterval(() => {
     getLocal(); // 父页面操作的时候，很容易数据不同步。
-    if(danmuEle) checkHeight(danmuEle); // 从下面改到上面了，因为如果拖进度条，有可能瞬间执行一百多次
+    if (danmuEle) checkHeight(danmuEle); // 从下面改到上面了，因为如果拖进度条，有可能瞬间执行一百多次
   }, 1888);
   function main() {
     let config = { childList: true, subtree: true };
@@ -364,7 +362,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    checkHeight(danmuEle);
+    // c heckHeight(danmuEle); // 为了避免潜在的性能问题
   };
   setStyle();
   if (ifTextRefresh) textRefresh(danmuEle);
@@ -693,5 +691,5 @@ function getDanmuEle() {
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
 // 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
-// 测试地址 发：https://www.youtube.com/watch?v=m8nButUrSYk
+// 测试地址 发：https://www.youtube.com/live/JCgaAocOMmw?si=nLCbDXoGgJj_MEHt&t=7118
 // 测试地址：https://www.youtube.com/watch?v=jfKfPfyJRdk
