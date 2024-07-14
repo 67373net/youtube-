@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.10
+// @version      0.1.11
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -20,22 +20,28 @@ localStorage.removeItem('danmuParams'); // 清除旧版数据;
 const videoDoc = parent.document.querySelector('video').ownerDocument;
 const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
 let configs;
+const defaultPosition = 
+  { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58};
 const defaultConfigs = {
-  showMode: 0, fontSize: 15, top: 88, left: 58, maxHeight: 528, width: 528,
-  gap: 3, transparent: 0.58, singleLine: false, wrap: false,
+  ...defaultPosition, showMode: 0, 
+  singleLine: false, wrap: false,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
+function deepCopy(a) {
+  try {
+    return structuredClone(a);
+  } catch {
+    return JSON.parse(JSON.stringify(a));
+  }
+}
 getLocal();
-setInterval(getLocal, 1888); // 跨页面操作的时候，很容易数据不同步。
 function getLocal() {
-  const storedConfigs = JSON.parse(localStorage.getItem('danmuConfigs') || '{}');
-  configs = Object.assign({}, defaultConfigs, storedConfigs);
+  const storedConfigs = JSON.parse(localStorage.getItem('danmuConfigs') || 'false');
+  configs = storedConfigs ? deepCopy(storedConfigs) : deepCopy(defaultConfigs);
 };
 for (let key in configs) {
-  if (!(key in defaultConfigs)) {
-    delete configs[key];
-  }
+  if (!(key in defaultConfigs)) delete configs[key];
 };
 setLocal();
 function setLocal(params) {
@@ -43,14 +49,23 @@ function setLocal(params) {
 };
 
 GM_registerMenuCommand("重置位置", () => {
-  let defaultPosition = { top: 88, left: 58, maxHeight: 528, width: 528 }
-  setLocal(defaultPosition)
-  let danmuEle = videoDoc.querySelector('#danmu-ele');
+  setLocal(defaultPosition);
+  const danmuEle = videoDoc.querySelector('#danmu-ele');
+  eleRefresh(danmuEle);
+  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
   danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+});
+
+GM_registerMenuCommand("重置所有设置（慎用）", () => {
+  localStorage.removeItem('danmuConfigs');
+  getLocal();
+  setLocal();
+  const danmuEle = videoDoc.querySelector('#danmu-ele');
+  eleRefresh(danmuEle);
   danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-  for (let i in defaultPosition) defaultPosition[i] = defaultPosition[i] + 'px';
-  Object.assign(danmuEle.style, defaultPosition);
+  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
 function checkHeight(danmuEle) {
@@ -75,7 +90,7 @@ function checkHeight(danmuEle) {
   }
 }
 
-function setStyle(danmuEle) {
+function setStyle() {
   let floatDanmuStyle = videoDoc.querySelector('#float-danmu-style');
   if (!floatDanmuStyle) {
     floatDanmuStyle = videoDoc.createElement('style');
@@ -145,17 +160,8 @@ function setStyle(danmuEle) {
   .danmu-text {
     color: white;
   }`;
-  const showMode = modes[configs.showMode];
-  if (danmuEle) {
-    if (showMode == '全隐藏') {
-      danmuEle.querySelector('#danmu-content').style.display = 'none';
-    } else {
-      danmuEle.querySelector('#danmu-content').style.display = 'block';
-      checkHeight(danmuEle);
-    };
-  }
   let showModeStyle = '';
-  switch (showMode) {
+  switch (modes[configs.showMode]) {
     case '全显示':
       showModeStyle = `
         .danmu-username-long { display: inline !important; }
@@ -232,11 +238,13 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=') || location.hre
 
 // ✴️ 弹幕 iframe 页面
 if (location.href.startsWith('https://www.youtube.com/live_chat')) {
-  if (document.readyState == "complete" || document.readyState == "loaded" || document.readyState == "interactive") {
+  if (document.readyState == "complete" || document.readyState == "loaded" 
+    || document.readyState == "interactive") {
     main();
   } else {
     document.addEventListener("DOMContentLoaded", main);
   };
+  setInterval(getLocal, 1888); // 跨页面操作的时候，很容易数据不同步。
   function main() {
     let danmuEle = parent.document.querySelector("#danmu-ele");
     let config = { childList: true, subtree: true };
@@ -248,83 +256,77 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           if (node.nodeType !== 1) return;
           if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
           let el = digestYtChatDom(node);
-          if (!el) return;
-          danmuEle.querySelector('#danmu-content').appendChild(el);
-          checkHeight(danmuEle);
+          if (el) {
+            danmuEle.querySelector('#danmu-content').appendChild(el);
+            checkHeight(danmuEle);
+          };          
         });
       });
     });
-    observeDanmu();
-    function observeDanmu() {
-      let timer = setInterval(() => {
-        // let ytbChatEle = document.querySelector('#item-offset');
-        let ytbChatEle = document.querySelector('#contents.style-scope.yt-live-chat-app');
-        if (!ytbChatEle) return;
-        clearInterval(timer);
-        observer.observe(ytbChatEle, config);
-      }, 888);
-    }
+    let timer = setInterval(() => {
+      let ytbChatEle = document.querySelector('#contents.style-scope.yt-live-chat-app');
+      if (!ytbChatEle) return;
+      clearInterval(timer);
+      observer.observe(ytbChatEle, config);
+    }, 888);
   };
-};
 
-// 获取聊天内容 小米（改
-// let lastUserName;
-const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name.toLowerCase());
-function digestYtChatDom(dom) {
-  const userPhotoElement = dom.querySelector("#author-photo #img");
-  const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
-  const contentElement = dom.querySelector("#message");
-  const content = contentElement ? contentElement.innerHTML : '';
-  let usernameElement = dom.querySelector("#author-name");
-  let username = usernameElement ? usernameElement.innerHTML : '';
-  if (!username) return;
-  if (configs.isFocusNames && !hasName(username, configs.focusNames)) return;
-  if (configs.isBlockNames && hasName(username, configs.blockNames)) return;
-  if (username && username.indexOf("<") > -1) {
-    username = username.substring(0, username.indexOf("<")).trim();
-  }
-  // if (lastUserName == username) return;
-  // lastUserName = username;
-  let el = videoDoc.createElement('div');
-  el.className = 'danmu-item';
-  if (configs.isHighlightNames && hasName(username, configs.highlightNames)) el.className += ' danmu-highlight';
-  let color = '';
-  if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
-    username = "(SC) " + username;
-    color = getComputedStyle(dom).getPropertyValue("--yt-live-chat-paid-message-primary-color");
-    color = `style="color: ${color}"`;
-  }
-  el.innerHTML += `${userphoto}`;
-  let separator = content ? '：' : '';
-  el.innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
-    + `</span>${separator}</span>`;
-  el.innerHTML +=
-    `<span class="danmu-username-short" ${color}>${username.substring(0, 1)}<span class="danmu-badge">`
-    + `</span>${separator}</span>`;
-  el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
-  setTimeout(() => {
-    if (el.querySelector('img').src.startsWith('data')) {
-      el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
+  // 获取聊天内容 小米（改
+  const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name.toLowerCase());
+  function digestYtChatDom(dom) {
+    const userPhotoElement = dom.querySelector("#author-photo #img");
+    const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
+    const contentElement = dom.querySelector("#message");
+    const content = contentElement ? contentElement.innerHTML : '';
+    let usernameElement = dom.querySelector("#author-name");
+    let username = usernameElement ? usernameElement.innerHTML : '';
+    if (!username) return;
+    if (configs.isFocusNames && !hasName(username, configs.focusNames)) return;
+    if (configs.isBlockNames && hasName(username, configs.blockNames)) return;
+    if (username && username.indexOf("<") > -1) {
+      username = username.substring(0, username.indexOf("<")).trim();
     }
-    try {
-      let badge = dom.querySelector("yt-icon div").cloneNode(true);
-      let path = badge.querySelector('path');
-      if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
-        switch (1) {
-          case 0:
-            badge.style.width = '1em';
-            badge.style.display = 'inline-block';
-            badge.style.color = 'lightyellow';
-            el.querySelector('.danmu-badge').appendChild(badge);
-            break;
-          case 1:
-            el.querySelector('.danmu-badge').innerText = '🔧';
-            break;
-        }
+    let el = videoDoc.createElement('div');
+    el.className = 'danmu-item';
+    if (configs.isHighlightNames && hasName(username, configs.highlightNames)) el.className += ' danmu-highlight';
+    let color = '';
+    if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
+      username = "(SC) " + username;
+      color = getComputedStyle(dom).getPropertyValue("--yt-live-chat-paid-message-primary-color");
+      color = `style="color: ${color}"`;
+    }
+    el.innerHTML += `${userphoto}`;
+    let separator = content ? '：' : '';
+    el.innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
+      + `</span>${separator}</span>`;
+    el.innerHTML +=
+      `<span class="danmu-username-short" ${color}>${username.substring(0, 1)}<span class="danmu-badge">`
+      + `</span>${separator}</span>`;
+    el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
+    setTimeout(() => {
+      if (el.querySelector('img').src.startsWith('data')) {
+        el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
       }
-    } catch (e) { }
-  }, 588)
-  return el;
+      try {
+        let badge = dom.querySelector("yt-icon div").cloneNode(true);
+        let path = badge.querySelector('path');
+        if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
+          switch (0) {
+            case 0:
+              badge.style.width = '1em';
+              badge.style.display = 'inline-block';
+              badge.style.color = 'lightyellow';
+              el.querySelector('.danmu-badge').appendChild(badge);
+              break;
+            case 1:
+              el.querySelector('.danmu-badge').innerText = '🔧';
+              break;
+          }
+        }
+      } catch (e) { }
+    }, 588)
+    return el;
+  };
 };
 
 // ✴️ 初始化
@@ -343,7 +345,13 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
   danmuEle.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
-  setStyle(danmuEle);
+  if (modes[configs.showMode] == '全隐藏') {
+    danmuEle.querySelector('#danmu-content').style.display = 'none';
+  } else {
+    danmuEle.querySelector('#danmu-content').style.display = 'block';
+    checkHeight(danmuEle);
+  };
+  setStyle();
   if (ifTextRefresh) textRefresh(danmuEle);
 };
 
@@ -461,11 +469,11 @@ function getDanmuEle() {
   // 行显示模式
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
-    setStyle(danmuEle);
+    setStyle();
   });
   danmuEle.querySelector('#danmu-wrap').addEventListener('change', event => {
     setLocal({ wrap: event.target.checked });
-    setStyle(danmuEle);
+    setStyle();
   });
 
   // 控制功能 - 间距大小
@@ -477,7 +485,7 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-gap-minus').addEventListener('click', e => gapChange(-1));
 
   // 控制功能 - 透明度
-  let transparentTimerI, transparentTimerT;
+  let transparentTimerI;
   function transparentChange(change) {
     change = Math.round(100 * (configs.transparent + change)) / 100;
     setLocal({ transparent: change });
@@ -485,16 +493,13 @@ function getDanmuEle() {
   };
   function transparentMouseDown(change) {
     transparentChange(change);
-    transparentTimerT = setTimeout(() => {
-      transparentTimerI = setInterval(() => {
-        transparentChange(change);
-      }, 88)
-    }, 888);
+    transparentTimerI = setInterval(() => {
+      transparentChange(change * 8);
+    }, 888)
     videoDoc.addEventListener('mouseup', transparentMouseStop);
   };
   function transparentMouseStop() {
     clearInterval(transparentTimerI);
-    clearTimeout(transparentTimerT);
     videoDoc.removeEventListener('mouseup', transparentMouseStop);
   }
   danmuEle.querySelector('#danmu-transparent-add').addEventListener('mousedown', e => transparentMouseDown(0.01));
@@ -543,7 +548,6 @@ function getDanmuEle() {
       } else return;
     } else {
       danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-      eleRefresh(danmuEle);
     }
   };
   danmuEle.querySelector('#danmu-settings').addEventListener('click', () => {
@@ -608,7 +612,7 @@ function getDanmuEle() {
     let width = danmuEle.offsetWidth;
     let height = danmuContentEl.offsetHeight;
     let left = danmuEle.offsetLeft;
-    let mouse = JSON.parse(JSON.stringify(mouseStatus));
+    let mouse = deepCopy(mouseStatus); // 以免在移动中变化
 
     function doDrag(e) {
       e.stopPropagation();
