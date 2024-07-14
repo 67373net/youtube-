@@ -85,7 +85,10 @@ GM_registerMenuCommand("重置所有设置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
+let isCheckingHeight;
 function checkHeight(danmuEle) {
+  if (isCheckingHeight) return;
+  isCheckingHeight = true;
   function inBottom() {
     let children = danmuEle.querySelectorAll('.danmu-item');
     if (children.length == 0) return {};
@@ -94,15 +97,15 @@ function checkHeight(danmuEle) {
   }
   const outBottom = () => danmuEle.getBoundingClientRect().bottom;
   for (let b = inBottom(); b.notEmpty && b.bottom > outBottom() + 5; b = inBottom()) {
-    let isRemove = [];
-    for (let i = 0; i < b.children.length; i++) {
-      isRemove[i] =
-        b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5;
+    let isRemove = [b.children[0]];
+    for (let i = 1; i < b.children.length; i++) {
+      if (b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5) {
+        isRemove[i] = b.children[i]
+      } else break;
     }
-    isRemove.map((item, i) => {
-      if (item) b.children[i].parentNode.removeChild(b.children[i]);
-    });
+    isRemove.map(item => item.parentNode.removeChild(item));
   }
+  isCheckingHeight = false;
 }
 
 function setStyle() {
@@ -260,10 +263,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   } else {
     document.addEventListener("DOMContentLoaded", main);
   };
-  setInterval(() => {
-    getLocal(); // 父页面操作的时候，很容易数据不同步。
-    if (danmuEle) checkHeight(danmuEle); // 从下面改到上面了，因为如果拖进度条，有可能瞬间执行一百多次
-  }, 1888);
+  setInterval(getLocal, 1888); // 父页面操作的时候，很容易数据不同步。
   function main() {
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
@@ -274,7 +274,9 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           if (node.nodeType !== 1) return;
           if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
           let el = digestYtChatDom(node);
-          if (el) danmuEle.querySelector('#danmu-content').appendChild(el);
+          if (!el) return;
+          danmuEle.querySelector('#danmu-content').appendChild(el);
+          try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
         });
       });
     });
@@ -362,7 +364,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    // c heckHeight(danmuEle); // 为了避免潜在的性能问题
+    try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
   };
   setStyle();
   if (ifTextRefresh) textRefresh(danmuEle);
