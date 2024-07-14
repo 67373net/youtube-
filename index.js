@@ -1,28 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
@@ -98,7 +73,6 @@ GM_registerMenuCommand("重置除了用户名外的所有设置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
-
 GM_registerMenuCommand("重置所有设置", () => {
   localStorage.removeItem('danmuConfigs');
   getLocal();
@@ -110,7 +84,6 @@ GM_registerMenuCommand("重置所有设置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
-
 function inBottom(danmuEle) {
   let children = danmuEle.querySelectorAll('.danmu-item');
   if (children.length == 0) return {};
@@ -120,7 +93,11 @@ function inBottom(danmuEle) {
   return { notEmpty: true, children, bottom, diff };
 };
 
-let isCheckingHeight, delay = { sec: 2.88, div: 1 };
+// css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
+// height 和 tramsform 方案：
+//   弃用，多个 div 位于一行时，高度设置没用，还是会挤住下面的元素，可能是 div 内部元素的问题。但懒得解决
+// margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡？
+let isCheckingHeight, testFlag = 0;
 function checkHeight(danmuEle) {
   if (isCheckingHeight) return;
   isCheckingHeight = true;
@@ -145,9 +122,9 @@ function checkHeight(danmuEle) {
   }
 
   function directRemove() {
-    firstLine.forEach(node => { if (node) node.parentNode.removeChild(node) });
+    firstLine.forEach(node => { try { node.parentNode.removeChild(node) } catch (e) { console.log(e) } });
     isCheckingHeight = false;
-  }
+  };
 
   if (firstLine) {
     if (!secondLine) {
@@ -156,167 +133,35 @@ function checkHeight(danmuEle) {
     };
     let margin = Number(getComputedStyle(firstLine[0]).margin.replace('px', ''));
     let baseHeight = margin + firstLine[0].getBoundingClientRect().height;
-    firstLine.forEach(node => { if (node) node.style.visibility = 'hidden' });
-    let speed = 0.05;
-    let scaleStart = 0.6;
-    let marginTop = margin;
+    let speed = 0.025;
+    let marginTop = 0;
 
     transform();
-    // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
-    // height 和 tramsform 方案：
-    //   弃用，多个 div 位于一行时，高度设置没用，还是会挤住下面的元素，可能是 div 内部元素的问题。但懒得解决
-    // margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡？
     function transform() {
       let b = inBottom(danmuEle);
-      let timeout = 2.88 * speed / Math.max(1, 2 * Math.pow(b.diff / baseHeight, 2));
-      if (timeout < 0.02) scaleStart = timeout * 30;
+      let timeout = 1.88 * speed / Math.max(1, 2.8 * Math.pow(b.diff / baseHeight, 2.8));
+      console.log(timeout*1000, b.diff / baseHeight);
       marginTop -= baseHeight * speed;
-      if (marginTop <= margin-baseHeight) {
+      if (marginTop <= 0 - baseHeight || b.diff / baseHeight > 18) {
         directRemove();
-        secondLine.forEach(node => { node.style.marginTop = `${margin}px` });
+        danmuEle.querySelector('#danmu-content').style.marginTop = 0;
         checkHeight(danmuEle);
         return;
       }
       setTimeout(() => {
-        for (let i = 0; i < secondLine.length; i++) {
-          let node = secondLine[i];
-          if (node) node.style.marginTop = `${marginTop}px`;
-        };
+        firstLine.forEach(node => {
+          try {
+            node.style.opacity = 1 + marginTop / baseHeight;
+          } catch { }
+        });
+        danmuEle.querySelector('#danmu-content').style.marginTop = `${marginTop}px`;
         transform();
       }, timeout * 1000);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // function transform() {
-    //   let b = inBottom(danmuEle);
-    //   let timeout = 2.88 * speed / Math.max(1, 2 * Math.pow(b.diff / baseHeight, 2));
-    //   let scaleStart = 0.6;
-    //   if (timeout < 0.02) scaleStart = timeout * 30;
-    //   setTimeout(() => {
-
-
-    //     for (let i = 0; i < firstLine.length; i++) {
-    //       let node = firstLine[i];
-    //       try {
-    //         let scale = node.style.transform || `scaleY(${scaleStart})`;
-    //         scale = Number(scale.match(/scaleY\((.+)\)/)[1]) - speed;
-    //         if (scale <= 0) {
-    //           directRemove();
-    //           return;
-    //         }
-    //         let width = getComputedStyle(node).width;
-    //         node.innerHTML = `<div class="danmu-item" style = "width:${width}"></div>`;
-    //         console.log(node)
-    //         node.style.paddingTop = 0;
-    //         node.style.paddingBottom = 0;
-    //         node.style.marginTop = 0;
-    //         node.style.marginBottom = 0;
-    //         node.style.height = `${baseHeight * scale}px`;
-    //         // node.style.lineHight = `${baseHeight * scale}px`;
-    //         node.style.transform = `scaleY(${scale})`;
-    //       } catch (e) {
-    //         console.log(e);
-    //         directRemove();
-    //       };
-    //     }
-
-
-    //     transform()
-    //   }, timeout * 1000);
-    // }
-
-
-
-
-
-    // firstLine.forEach(node => { node.style.visibility = 'hidden' });
-    // let margin = getComputedStyle(firstLine[0]).margin.replace('px', '');
-    // let baseHeight = Number(margin) + firstLine[0].getBoundingClientRect().height;
-    // let div = 1 * Math.pow(b.diff / baseHeight, 1);
-    // delay.sec = Math.max(0.05, Math.min(2.88, delay.sec * Math.pow( delay.div / div,1.8)) );
-    // delay.div = div;
-    // secondLine.forEach(node => {
-    //   node.style.transition = `margin ${delay.sec}s`;
-    //   // node.offsetHeight; // Force a reflow to ensure the transition applies
-    //   node.style.marginTop = `${0 - baseHeight}px`;
-    // });
-    // setTimeout(() => {
-    //   secondLine.forEach(node => {
-    //     node.style.transition = ``;
-    //     // node.offsetHeight; // Force a reflow to ensure the transition applies
-    //     node.style.marginTop = `${margin}px`;
-    //   });
-    //   firstLine.forEach(node => node.parentNode.removeChild(node));
-    //   isCheckingHeight = false;
-    //   checkHeight(danmuEle);
-    // }, delay.sec * 1000);
-
-
-
-
-
-
-
   } else {
     isCheckingHeight = false;
   };
 };
-
-// let isRemovingDanmu, removeTimer;
-// function damnuRemove(danmuEle) {
-//   if (isRemovingDanmu) return;
-//   if (removeTimer) return;
-//   isRemovingDanmu = true;
-//   let notFinished = false;
-//   let b = inBottom(danmuEle);
-//   if (!b.notEmpty) {
-//     isRemovingDanmu = false;
-//     return;
-//   }
-//   let speed = 0.05;
-//   let danmuItemHeight = styleCalc().danmuItemHeight;
-//   let interval = Math.max(1, (b.bottom - outBottom(danmuEle)) / danmuItemHeight / 1.4) // 底部超出的行数估算
-//   interval = Math.floor(8888 * speed / interval) // 1588 秒完成一行
-//   for (let i = 0; i < b.children.length; i++) {
-//     if (b.children[i].danmuToRemove) {
-//       try {
-//         let scale = b.children[i].style.transform || 'scaleY(1)';
-//         scale = Number(scale.match(/scaleY\((.+)\)/)[1]) - speed;
-//         if (scale <= 0) b.children[i].parentNode.removeChild(b.children[i]);
-//         notFinished = true;
-//         b.children[i].style.height = `${danmuItemHeight * scale}px`;
-//         b.children[i].style.transform = `scaleY(${scale})`;
-//       } catch (e) {
-//         console.log(e);
-//         b.children[i].parentNode.removeChild(b.children[i]);
-//       }
-//     } else break;
-//   };
-//   isRemovingDanmu = false;
-//   console.log(interval);
-//   if (notFinished && !removeTimer) removeTimer = setTimeout(() => { damnuRemove(danmuEle) }, interval);
-//   if (!notFinished) {
-//     clearTimeout(removeTimer);
-//     removeTimer = undefined;
-//   }
-// };
 
 function styleCalc() {
   let danmuItemPaddingTop = configs.gap;
@@ -346,12 +191,14 @@ function setStyle() {
     position: absolute;
     color: white;
     height: auto;
-    z-index: 67373;
+    z-index: 1013;
     top: ${configs.top}px;
     left: ${configs.left}px;
     width: ${configs.width}px;
   }
   #danmu-ctrl {
+    z-index: 67373;
+    position: relative;
     background-color: rgba(0,0,0,0.5);
     border: solid white 0.1px;
     padding: 2.8px;
@@ -584,7 +431,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
+    // try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
   };
   setStyle();
   if (ifTextRefresh) textRefresh(danmuEle);
@@ -663,17 +510,9 @@ function getDanmuEle() {
   danmuEle.addEventListener('mouseenter', () => {
     isMouseIn = true;
     danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-    // danmuContentEl.style.border = 'white solid 1px';
-    // danmuContentEl.style.borderRight = '8.8px dashed white';
-    // danmuContentEl.style.borderBottom = '8.8px dashed white';
-    function addStripedBorder(element) {
-      element.style.borderRight = '8px solid black';
-      element.style.borderBottom = '8px solid black';
-      element.style.borderLeft = '8px solid white';
-      element.style.borderImage =
-        'repeating-linear-gradient(45deg, black, black 5px, white 5px, white 10px) 1';
-    }
-    addStripedBorder(danmuContentEl);
+    danmuContentEl.style.borderBottom = 'Coral solid 1px';
+    danmuContentEl.style.borderLeft = '8.8px dashed Coral';
+    danmuContentEl.style.borderRight = '8.8px dashed Coral';
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
   });
   danmuEle.addEventListener('mouseleave', () => {
@@ -681,10 +520,10 @@ function getDanmuEle() {
     setTimeout(() => {
       if (!isMouseIn) {
         danmuEle.querySelector('#danmu-ctrl').style.visibility = 'hidden';
-        danmuContentEl.style.borderLeft = '';
-        danmuContentEl.style.borderRight = '';
         danmuContentEl.style.borderBottom = '';
-        danmuContentEl.style.borderImage = '';
+        danmuContentEl.style.borderLeft = '';
+        danmuContentEl.style.borderLeft = '';
+        danmuContentEl.style.border = '';
         danmuContentEl.style.height = 'auto';
       }
     }, 158)
@@ -822,21 +661,25 @@ function getDanmuEle() {
     const offset = 10;
     if (event.clientX <= rect.right && event.clientX >= rect.right - offset &&
       event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
-      danmuContentEl.style.cursor = 'nwse-resize'; // 右下
-      mouseStatus = { width: 1, height: 1, left: 0 };
+      // danmuContentEl.style.cursor = 'nwse-resize'; // 右下
+      // mouseStatus = { width: 1, height: 1, left: 0 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset &&
       event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
-      danmuContentEl.style.cursor = 'nesw-resize'; // 左下
-      mouseStatus = { width: -1, height: 1, left: 1 };
+      // danmuContentEl.style.cursor = 'nesw-resize'; // 左下
+      // mouseStatus = { width: -1, height: 1, left: 1 };
     } else if (event.clientX >= rect.left && event.clientX <= rect.left + offset) {
-      danmuContentEl.style.cursor = 'ew-resize'; // 左
-      mouseStatus = { width: -1, height: 0, left: 1 };
+      // danmuContentEl.style.cursor = 'ew-resize'; // 左
+      // mouseStatus = { width: -1, height: 0, left: 1 };
+      danmuContentEl.style.cursor = 'all-scroll';
+      mouseStatus = { width: -1, height: 1, left: 1 };
     } else if (event.clientX <= rect.right && event.clientX >= rect.right - offset) {
-      danmuContentEl.style.cursor = 'ew-resize'; // 右
-      mouseStatus = { width: 1, height: 0, left: 0 };
+      // danmuContentEl.style.cursor = 'ew-resize'; // 右
+      // mouseStatus = { width: 1, height: 0, left: 0 };
+      danmuContentEl.style.cursor = 'all-scroll';
+      mouseStatus = { width: 1, height: 1, left: 0 };
     } else if (event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
-      danmuContentEl.style.cursor = 'ns-resize'; // 下
-      mouseStatus = { width: 0, height: 1, left: 0 };
+      // danmuContentEl.style.cursor = 'ns-resize'; // 下
+      // mouseStatus = { width: 0, height: 1, left: 0 };
     } else {
       danmuContentEl.style.cursor = 'default'; // 默认箭头
       mouseStatus = { width: 0, height: 0, left: 0 };
