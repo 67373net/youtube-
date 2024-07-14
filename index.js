@@ -100,7 +100,7 @@ function checkHeight(danmuEle) {
         b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 5;
     }
     isRemove.map((item, i) => {
-      if (item) b.children[i].parentNode.removeChild(children[i]);
+      if (item) b.children[i].parentNode.removeChild(b.children[i]);
     });
   }
 }
