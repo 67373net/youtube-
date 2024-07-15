@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.15
+// @version      0.1.16
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
 // @grant        GM_registerMenuCommand
 // @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20悬浮弹幕.user.js
-// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20悬浮弹幕.meta.js
+// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
+// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
 // ==/UserScript==
 
 // ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
@@ -79,14 +79,16 @@ GM_registerMenuCommand("重置除了用户名外的所有设置", () => {
 });
 
 GM_registerMenuCommand("重置所有设置", () => {
-  localStorage.removeItem('danmuConfigs');
-  getLocal();
-  setLocal();
-  const danmuEle = videoDoc.querySelector('#danmu-ele');
-  eleRefresh(danmuEle);
-  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+  if (confirm('所有设置都会重置，名字列表会被清空，是否继续')) {
+    localStorage.removeItem('danmuConfigs');
+    getLocal();
+    setLocal();
+    const danmuEle = videoDoc.querySelector('#danmu-ele');
+    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+    danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+    danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+  } else return;
 });
 
 // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
@@ -214,13 +216,13 @@ function setStyle() {
     position: absolute;
     color: white;
     height: auto;
-    z-index: 1013;
+    z-index: 911;
     top: ${configs.top}px;
     left: ${configs.left}px;
     width: ${configs.width}px;
   }
   #danmu-ctrl {
-    z-index: 67373;
+    z-index: 1013;
     position: relative;
     background-color: rgba(0,0,0,0.5);
     border: solid white 0.1px;
@@ -228,6 +230,7 @@ function setStyle() {
     font-size: 12.8px;
   }
   #danmu-pop-board {
+    z-index: 418094;
     display: none;
     position: fixed;
     top: 50%;
@@ -516,17 +519,17 @@ function getDanmuEle() {
         <input type="checkbox" id="danmu-is-focus-names">
         关注模式：只显示这些用户名的弹幕。每行一个。
       </div>
-      <textarea id="danmu-focus-names" style="width: 100%; height: 128px"></textarea>
+      <textarea id="danmu-focus-names" style="width: 100%; height: 88px"></textarea>
       <div style="margin:0.28em 0">
         <input type="checkbox" id="danmu-is-highlight-names">
         高亮模式：这些用户名会高亮。
       </div>
-      <textarea id="danmu-highlight-names" style="width: 100%; height: 128px"></textarea>
+      <textarea id="danmu-highlight-names" style="width: 100%; height: 88px"></textarea>
       <div style="margin:0.28em 0">
         <input type="checkbox" id="danmu-is-block-names">
         屏蔽模式：这些用户名会被屏蔽。
       </div>
-      <textarea id="danmu-block-names" style="width: 100%; height: 128px"></textarea>
+      <textarea id="danmu-block-names" style="width: 100%; height: 88px"></textarea>
       <div style="height:0.5em"></div>
       <button id="danmu-pop-board-cancel">取消</button>
       <button id="danmu-pop-board-submit">确定</button>
@@ -647,6 +650,7 @@ function getDanmuEle() {
         .value.split('\n').filter(item => item.trim()),
     });
     danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+    videoDoc.querySelector('#masthead-container').style.display = 'block';
   };
   function settingCancel() {
     function different(a, b) {
@@ -660,18 +664,23 @@ function getDanmuEle() {
     if (namesChanged) {
       if (confirm('名字列表有修改，是否丢弃这些修改？')) {
         danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+        videoDoc.querySelector('#masthead-container').style.display = 'block';
         eleRefresh(danmuEle);
       } else return;
     } else {
       danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+      videoDoc.querySelector('#masthead-container').style.display = 'block';
     }
   };
+
+  // ⬜️ pop 板弹出
   danmuEle.querySelector('#danmu-settings').addEventListener('click', () => {
     if (danmuEle.querySelector('#danmu-pop-board').style.display == 'block') {
       settingCancel();
     } else {
       eleRefresh(danmuEle, true);
       danmuEle.querySelector('#danmu-pop-board').style.display = 'block';
+      videoDoc.querySelector('#masthead-container').style.display = 'none';
     };
   });
   danmuEle.querySelector('#danmu-pop-board-cancel').addEventListener('click', () => {
