@@ -101,7 +101,6 @@ let isCheckingHeight, testFlag = 0;
 function checkHeight(danmuEle) {
   if (isCheckingHeight) return;
   isCheckingHeight = true;
-
   let b = inBottom(danmuEle);
   let firstLine, secondLine;
   if (b.notEmpty && b.diff > 0) {
@@ -131,7 +130,7 @@ function checkHeight(danmuEle) {
       directRemove();
       return;
     };
-    let margin = Number(getComputedStyle(firstLine[0]).margin.replace('px', ''));
+    let margin = parseFloat(getComputedStyle(firstLine[0]).margin);
     let baseHeight = margin + firstLine[0].getBoundingClientRect().height;
     let speed = 0.025;
     let marginTop = 0;
@@ -140,7 +139,7 @@ function checkHeight(danmuEle) {
     function transform() {
       let b = inBottom(danmuEle);
       let timeout = 1.88 * speed / Math.max(1, 2.8 * Math.pow(b.diff / baseHeight, 2.8));
-      console.log(timeout*1000, b.diff / baseHeight);
+      console.log(timeout*1000, b.diff / baseHeight, marginTop);
       marginTop -= baseHeight * speed;
       if (marginTop <= 0 - baseHeight || b.diff / baseHeight > 18) {
         directRemove();
