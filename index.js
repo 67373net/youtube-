@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.13
+// @version      0.1.15
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -23,8 +23,7 @@ let configs;
 const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
-  ...defaultPosition, showMode: 0,
-  singleLine: false, wrap: false,
+  ...defaultPosition, showMode: 0, singleLine: false, wrap: false, speed: 0.8,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
@@ -37,8 +36,13 @@ function deepCopy(a) {
 }
 getLocal();
 function getLocal() {
-  const storedConfigs = JSON.parse(localStorage.getItem('danmuConfigs') || 'false');
-  configs = storedConfigs ? deepCopy(storedConfigs) : deepCopy(defaultConfigs);
+  const configsStr = localStorage.getItem('danmuConfigs');
+  if (configsStr) {
+    configs = JSON.parse(configsStr);
+    configs = Object.assign(defaultConfigs, configs);
+  } else {
+    configs = deepCopy(defaultConfigs);
+  }
 };
 for (let key in configs) {
   if (!(key in defaultConfigs)) delete configs[key];
@@ -154,8 +158,7 @@ function removeCoverdTops(danmuEle, force) {
 // 移动完后进入下一次检查
 
 videoDoc.danmuObj = { isCheckingHeight: undefined };
-const second = 0.5;
-const timesVar = 1 / 25;
+const timesVar = 1 / 28;
 function checkHeight(danmuEle) {
   if (videoDoc.danmuObj.isCheckingHeight) return;
   videoDoc.danmuObj.isCheckingHeight = true;
@@ -180,7 +183,7 @@ function checkHeight(danmuEle) {
   setTimeout(() => {
     videoDoc.danmuObj.isCheckingHeight = false;
     checkHeight(danmuEle);
-  }, timesVar * second * 1000);
+  }, timesVar * configs.speed * 1000);
 };
 
 function styleCalc() {
@@ -439,6 +442,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     + `${configs.isHighlightNames ? '✅' : '❌'}${configs.isBlockNames ? '✅' : '❌'}`;
   danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
   danmuEle.querySelector('#danmu-fontsize').innerText = `字号${configs.fontSize}`;
+  danmuEle.querySelector('#danmu-speed').innerText = `速度1/${configs.speed}`;
   danmuEle.querySelector('#danmu-gap').innerText = `间距${configs.gap}`;
   danmuEle.querySelector('#danmu-transparent').innerText = `透明${configs.transparent}`;
   danmuEle.querySelector('#danmu-height').innerText = `高度${configs.maxHeight}`;
@@ -476,18 +480,23 @@ function getDanmuEle() {
     <div id="danmu-content"></div>
     <div id="danmu-pop-board">
       <span style="white-space: nowrap;">
-        <span id="danmu-fontsize"></span>
-        <button id="danmu-fontsize-add">+</button>
-        <button id="danmu-fontsize-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
         <input type="checkbox" id="danmu-single-line">
-        单行&nbsp;&nbsp;
+        独行&nbsp;&nbsp;
       </span>
       <span style="white-space: nowrap; display: none">
         <input type="checkbox" id="danmu-wrap">
         满行&nbsp;&nbsp;
       </span>
+      <span style="white-space: nowrap;">
+        <span id="danmu-fontsize"></span>
+        <button id="danmu-fontsize-add">+</button>
+        <button id="danmu-fontsize-minus">-</button>
+      </span>&nbsp;&nbsp;
+      <span style="white-space: nowrap;">
+        <span id="danmu-speed"></span>
+        <button id="danmu-speed-add">+</button>
+        <button id="danmu-speed-minus">-</button>
+      </span>&nbsp;&nbsp;
       <span style="white-space: nowrap;">
         <span id="danmu-gap"></span>
         <button id="danmu-gap-add">+</button>
@@ -553,14 +562,6 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
   danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
 
-  // ⬜️ 控制功能 - 字号大小
-  function fontSizeChange(change) {
-    setLocal({ fontSize: Math.max(0, configs.fontSize + change) });
-    eleRefresh(danmuEle);
-  };
-  danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', e => fontSizeChange(1));
-  danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', e => fontSizeChange(-1));
-
   // ⬜️ 行显示模式
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
@@ -570,6 +571,22 @@ function getDanmuEle() {
     setLocal({ wrap: event.target.checked });
     setStyle();
   });
+
+  // ⬜️ 控制功能 - 字号大小
+  function fontSizeChange(change) {
+    setLocal({ fontSize: Math.max(0, configs.fontSize + change) });
+    eleRefresh(danmuEle);
+  };
+  danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', e => fontSizeChange(1));
+  danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', e => fontSizeChange(-1));
+
+  // ⬜️ 控制功能 - 速度
+  function speedChange(change) {
+    setLocal({ speed: Math.max(0, Number((configs.speed + change).toFixed(2))) });
+    eleRefresh(danmuEle);
+  };
+  danmuEle.querySelector('#danmu-speed-add').addEventListener('click', e => speedChange(-0.05));
+  danmuEle.querySelector('#danmu-speed-minus').addEventListener('click', e => speedChange(0.05));
 
   // ⬜️ 控制功能 - 间距大小
   function gapChange(change) {
@@ -582,7 +599,7 @@ function getDanmuEle() {
   // ⬜️ 控制功能 - 透明度
   let transparentTimerI;
   function transparentChange(change) {
-    change = Math.round(100 * (configs.transparent + change)) / 100;
+    change = Number((configs.transparent + change).toFixed(2));
     setLocal({ transparent: change });
     eleRefresh(danmuEle);
   };
