@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.12
+// @version      0.1.13
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -44,6 +44,7 @@ for (let key in configs) {
   if (!(key in defaultConfigs)) delete configs[key];
 };
 setLocal();
+
 function setLocal(params) {
   localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
@@ -84,82 +85,102 @@ GM_registerMenuCommand("重置所有设置", () => {
   danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
 });
 
-function inBottom(danmuEle) {
-  let children = danmuEle.querySelectorAll('.danmu-item');
-  if (children.length == 0) return {};
-  let child = children[children.length - 1];
-  let bottom = child.getBoundingClientRect().bottom;
-  let diff = bottom - danmuEle.getBoundingClientRect().bottom - 5;
-  return { notEmpty: true, children, bottom, diff };
-};
-
 // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
 // height 和 tramsform 方案：
 //   弃用，多个 div 位于一行时，高度设置没用，还是会挤住下面的元素，可能是 div 内部元素的问题。但懒得解决
 // margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡？
-let isCheckingHeight, testFlag = 0;
-function checkHeight(danmuEle) {
-  if (isCheckingHeight) return;
-  isCheckingHeight = true;
-  let b = inBottom(danmuEle);
+function linesInfo(danmuEle, ifFirstLine, ifSecondLine) {
+  let children = danmuEle.querySelectorAll('.danmu-item');
+  if (children.length == 0) return;
+  let lastChild = children[children.length - 1];
+  let lastChildRect = lastChild.getBoundingClientRect();
+  let firstChildRect = children[0].getBoundingClientRect();
+  let margin = parseFloat(getComputedStyle(children[0]).margin);
+  let baseHeight = margin + firstChildRect.height;
+  let diff = lastChildRect.bottom - danmuEle.getBoundingClientRect().bottom;
+  let danmuCtrlRect = danmuEle.querySelector('#danmu-ctrl').getBoundingClientRect();
+  let distance = firstChildRect.bottom - danmuCtrlRect.bottom;
+  let isOverlap1 = firstChildRect.top < danmuCtrlRect.bottom;
   let firstLine, secondLine;
-  if (b.notEmpty && b.diff > 0) {
-    firstLine = [b.children[0]];
-    for (let i = 1; i < b.children.length; i++) {
-      if (b.children[i].getBoundingClientRect().top <= b.children[0].getBoundingClientRect().top + 3) {
-        firstLine[i] = b.children[i];
+  if (ifFirstLine) {
+    firstLine = [children[0]];
+    for (let i = 1; i < children.length; i++) {
+      if (children[i].getBoundingClientRect().top <= children[0].getBoundingClientRect().top + 3) {
+        firstLine[i] = children[i];
       } else {
-        secondLine = [b.children[i]];
-        for (let j = i + 1; j < b.children.length; j++) {
-          if (b.children[j].getBoundingClientRect().top <= b.children[i].getBoundingClientRect().top + 3) {
-            secondLine[j - i] = b.children[j];
-          } else break;
-        };
+        if (ifSecondLine) {
+          secondLine = [children[i]];
+          for (let j = i + 1; j < children.length; j++) {
+            if (children[j].getBoundingClientRect().top <= children[i].getBoundingClientRect().top + 3) {
+              secondLine[j - i] = children[j];
+            } else break;
+          };
+        }
         break;
       };
     }
   }
+  return { notEmpty: true, children, distance, isOverlap1, diff, margin, baseHeight, firstLine, secondLine };
+};
 
-  function directRemove() {
-    firstLine.forEach(node => { try { node.parentNode.removeChild(node) } catch (e) { console.log(e) } });
-    isCheckingHeight = false;
-  };
-
-  if (firstLine) {
-    if (!secondLine) {
-      directRemove();
-      return;
+function removeCoverdTops(danmuEle, force) {
+  let l = linesInfo(danmuEle, true, false);
+  try {
+    while (l?.distance < 0 || (force && l?.firstLine)) {
+      force = false;
+      for (let i = 0; i < l.firstLine.length; i++) {
+        l.firstLine[i].parentNode.removeChild(l.firstLine[i]);
+      };
+      let contentEl = danmuEle.querySelector('#danmu-content');
+      contentEl.style.marginTop = Math.min(0, parseFloat(getComputedStyle(contentEl).marginTop) + l.baseHeight) + 'px';
+      l = linesInfo(danmuEle, true, false);
     };
-    let margin = parseFloat(getComputedStyle(firstLine[0]).margin);
-    let baseHeight = margin + firstLine[0].getBoundingClientRect().height;
-    let speed = 0.025;
-    let marginTop = 0;
+  } catch (e) { console.log(e) };
+  return l;
+};
 
-    transform();
-    function transform() {
-      let b = inBottom(danmuEle);
-      let timeout = 1.88 * speed / Math.max(1, 2.8 * Math.pow(b.diff / baseHeight, 2.8));
-      console.log(timeout*1000, b.diff / baseHeight, marginTop);
-      marginTop -= baseHeight * speed;
-      if (marginTop <= 0 - baseHeight || b.diff / baseHeight > 18) {
-        directRemove();
-        danmuEle.querySelector('#danmu-content').style.marginTop = 0;
-        checkHeight(danmuEle);
-        return;
-      }
-      setTimeout(() => {
-        firstLine.forEach(node => {
-          try {
-            node.style.opacity = 1 + marginTop / baseHeight;
-          } catch { }
-        });
-        danmuEle.querySelector('#danmu-content').style.marginTop = `${marginTop}px`;
-        transform();
-      }, timeout * 1000);
-    }
-  } else {
-    isCheckingHeight = false;
-  };
+// 检查高度设计
+// 检查间隔 1/25 秒 timesVar
+// 检查是否有完全覆盖的弹幕并删除
+// 如果有 overlap 或 底部超框，说明需要调整
+
+// 移动基础1：下边超出距离 diff
+// 移动基础2：第一行元素剩余距离 distance
+// 本次移动最终目标：diff 和 distance 的最大值 move
+// 本次移动阶段性目标：move * timesVar
+// 移动基础3：最小值：基础高度 * timesVar，但不能超过 move
+// 移动基础3：上限：0.8高度，但不能超过 move
+
+// 移动完后进入下一次检查
+
+videoDoc.danmuObj = { isCheckingHeight: undefined };
+const second = 0.5;
+const timesVar = 1 / 25;
+function checkHeight(danmuEle) {
+  if (videoDoc.danmuObj.isCheckingHeight) return;
+  videoDoc.danmuObj.isCheckingHeight = true;
+  // 检查是否有完全覆盖的弹幕并删除
+  let l = removeCoverdTops(danmuEle);
+  // 如果有 overlap 或 底部超框，说明需要调整
+  if (!l) { videoDoc.danmuObj.isCheckingHeight = false; return; };
+  if (!l.isOverlap1 && l.diff <= 0) { videoDoc.danmuObj.isCheckingHeight = false; return; };
+  // 移动基础
+  let move = Math.max(l.diff, l.distance);
+  let currentMove = move * timesVar;
+  currentMove = Math.max(l.baseHeight * timesVar, currentMove);
+  currentMove = Math.min(l.baseHeight * 0.8, currentMove);
+  currentMove = Math.min(move, currentMove);
+  let opacity = l.distance / l.baseHeight;
+  l.firstLine.forEach(node => {
+    try { node.style.opacity = opacity } catch { };
+  });
+  let contentEl = danmuEle.querySelector('#danmu-content');
+  let currentTop = parseFloat(getComputedStyle(contentEl).marginTop);
+  contentEl.style.marginTop = `${currentTop - currentMove}px`;
+  setTimeout(() => {
+    videoDoc.danmuObj.isCheckingHeight = false;
+    checkHeight(danmuEle);
+  }, timesVar * second * 1000);
 };
 
 function styleCalc() {
@@ -342,7 +363,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           let el = digestYtChatDom(node);
           if (!el) return;
           danmuEle.querySelector('#danmu-content').appendChild(el);
-          try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
+          try { checkHeight(danmuEle) } catch { videoDoc.danmuObj.isCheckingHeight = false };
         });
       });
     });
@@ -354,7 +375,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
     }, 888);
   };
 
-  // 获取聊天内容 小米（改
+  // ⬜️ 获取聊天内容 小米（改
   const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name.toLowerCase());
   function digestYtChatDom(dom) {
     const userPhotoElement = dom.querySelector("#author-photo #img");
@@ -410,7 +431,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   };
 };
 
-// ✴️ 初始化
+// ✴️ ⬜️ 初始化
 function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle = danmuEle || videoDoc.querySelector('#danmu-ele');
   if (!danmuEle) return;
@@ -430,7 +451,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    // try { checkHeight(danmuEle) } catch { isCheckingHeight = false };
+    try { checkHeight(danmuEle) } catch { videoDoc.danmuObj.isCheckingHeight = false };
   };
   setStyle();
   if (ifTextRefresh) textRefresh(danmuEle);
@@ -442,7 +463,7 @@ function textRefresh(danmuEle) {
   danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
 }
 
-// 建立基本元素
+// ⬜️ 建立基本元素
 function getDanmuEle() {
   let danmuEle = document.createElement('div')
   danmuEle.id = 'danmu-ele';
@@ -504,12 +525,12 @@ function getDanmuEle() {
   eleRefresh(danmuEle);
   let danmuContentEl = danmuEle.querySelector('#danmu-content');
 
-  // 移入移出显示
+  // ⬜️ 移入移出显示
   let isMouseIn;
   danmuEle.addEventListener('mouseenter', () => {
     isMouseIn = true;
     danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-    danmuContentEl.style.borderBottom = 'Coral solid 1px';
+    danmuContentEl.style.borderBottom = 'Coral solid 0.1px';
     danmuContentEl.style.borderLeft = '8.8px dashed Coral';
     danmuContentEl.style.borderRight = '8.8px dashed Coral';
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
@@ -528,11 +549,11 @@ function getDanmuEle() {
     }, 158)
   });
 
-  // 阻断点击事件穿透 屏蔽
+  // ⬜️ 阻断点击事件穿透 屏蔽
   danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
   danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
 
-  // 控制功能 - 字号大小
+  // ⬜️ 控制功能 - 字号大小
   function fontSizeChange(change) {
     setLocal({ fontSize: Math.max(0, configs.fontSize + change) });
     eleRefresh(danmuEle);
@@ -540,7 +561,7 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', e => fontSizeChange(1));
   danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', e => fontSizeChange(-1));
 
-  // 行显示模式
+  // ⬜️ 行显示模式
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
     setStyle();
@@ -550,7 +571,7 @@ function getDanmuEle() {
     setStyle();
   });
 
-  // 控制功能 - 间距大小
+  // ⬜️ 控制功能 - 间距大小
   function gapChange(change) {
     setLocal({ gap: configs.gap + change });
     eleRefresh(danmuEle);
@@ -558,7 +579,7 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-gap-add').addEventListener('click', e => gapChange(1));
   danmuEle.querySelector('#danmu-gap-minus').addEventListener('click', e => gapChange(-1));
 
-  // 控制功能 - 透明度
+  // ⬜️ 控制功能 - 透明度
   let transparentTimerI;
   function transparentChange(change) {
     change = Math.round(100 * (configs.transparent + change)) / 100;
@@ -581,7 +602,7 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-transparent-minus')
     .addEventListener('mousedown', e => transparentMouseDown(-0.01));
 
-  // 控制功能 - 高度
+  // ⬜️ 控制功能 - 高度
   function setHeight(num) {
     setLocal({ maxHeight: Math.max(0, configs.maxHeight + num) });
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
@@ -591,14 +612,14 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-height-add').addEventListener('click', e => setHeight(18));
   danmuEle.querySelector('#danmu-height-minus').addEventListener('click', e => setHeight(-18));
 
-  // 显示模式切换
+  // ⬜️ 显示模式切换
   danmuEle.querySelector('#show-mode').addEventListener('click', () => {
     setLocal({ showMode: (configs.showMode + 1) % Object.keys(modes).length });
     danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
     eleRefresh(danmuEle);
   });
 
-  // 用户筛选相关功能
+  // ⬜️ 用户筛选相关功能
   function settingSubmit() {
     setLocal({
       focusNames: danmuEle.querySelector('#danmu-focus-names')
@@ -653,7 +674,7 @@ function getDanmuEle() {
     eleRefresh(danmuEle);
   });
 
-  // 鼠标边缘箭头
+  // ⬜️ 鼠标边缘箭头
   let mouseStatus = { width: 0, height: 0, left: 0 };
   danmuContentEl.addEventListener('mousemove', function (event) {
     const rect = danmuContentEl.getBoundingClientRect();
@@ -685,7 +706,7 @@ function getDanmuEle() {
     }
   });
 
-  // 边缘拖拽
+  // ⬜️ 边缘拖拽
   danmuContentEl.addEventListener('mousedown', function (event) {
     event.stopPropagation();
     let doc = event.target.ownerDocument;
@@ -731,7 +752,7 @@ function getDanmuEle() {
     };
   });
 
-  // 整体拖拽
+  // ⬜️ 整体拖拽
   danmuEle.querySelector('#danmu-ctrl').style.cursor = 'grab';
   danmuEle.querySelector('#danmu-ctrl').addEventListener('mousedown', drag);
   function drag(e) {
