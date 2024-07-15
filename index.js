@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.16
+// @version      0.1.17
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -18,13 +18,14 @@
 localStorage.removeItem('danmuParams'); // 清除旧版数据;
 
 const videoDoc = parent.document.querySelector('video').ownerDocument;
-const modes = { "0": '全显示', "1": '短用户名', "2": '无用户名', "3": '全隐藏' };
+const modes = { "0": 'all show', "1": 'short name', "2": 'no name', "3": 'all hide' };
 let configs;
 const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
   ...defaultPosition, showMode: 0, singleLine: false, wrap: false, speed: 0.8,
-  focusNames: [], highlightNames: [], blockNames: [],
+  focusNames: ['每行一个用户名。', '写成这样的格式可以部分匹配：{part}xxxxxxxx'],
+  highlightNames: ['One username each line.', 'Part match syntax：{part}xxxxxxxx'], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
 function deepCopy(a) {
@@ -36,13 +37,9 @@ function deepCopy(a) {
 }
 getLocal();
 function getLocal() {
-  const configsStr = localStorage.getItem('danmuConfigs');
-  if (configsStr) {
-    configs = JSON.parse(configsStr);
-    configs = Object.assign(defaultConfigs, configs);
-  } else {
-    configs = deepCopy(defaultConfigs);
-  }
+  configs = deepCopy(defaultConfigs);
+  const configsStr = localStorage.getItem('danmuConfigs') || '{}';
+  configs = Object.assign({}, configs, JSON.parse(configsStr));
 };
 for (let key in configs) {
   if (!(key in defaultConfigs)) delete configs[key];
@@ -52,44 +49,6 @@ setLocal();
 function setLocal(params) {
   localStorage.setItem('danmuConfigs', JSON.stringify(Object.assign(configs, params)));
 };
-
-GM_registerMenuCommand("重置位置", () => {
-  setLocal(defaultPosition);
-  const danmuEle = videoDoc.querySelector('#danmu-ele');
-  eleRefresh(danmuEle);
-  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
-});
-
-GM_registerMenuCommand("重置除了用户名外的所有设置", () => {
-  let oldConfigs = deepCopy(configs);
-  localStorage.removeItem('danmuConfigs');
-  getLocal();
-  setLocal({
-    focusNames: oldConfigs.focusNames,
-    highlightNames: oldConfigs.focusNames,
-    blockNames: oldConfigs.focusNames
-  });
-  const danmuEle = videoDoc.querySelector('#danmu-ele');
-  eleRefresh(danmuEle);
-  danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-  danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-  danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
-});
-
-GM_registerMenuCommand("重置所有设置", () => {
-  if (confirm('所有设置都会重置，名字列表会被清空，是否继续')) {
-    localStorage.removeItem('danmuConfigs');
-    getLocal();
-    setLocal();
-    const danmuEle = videoDoc.querySelector('#danmu-ele');
-    eleRefresh(danmuEle);
-    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-    danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-    danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
-  } else return;
-});
 
 // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
 // height 和 tramsform 方案：
@@ -240,7 +199,7 @@ function setStyle() {
     padding: 18px;
     border: 1px solid #ccc;
     color: black;
-    font-size: 1.58em;
+    font-size: 1.18em;
   }
   #danmu-content {
     font-size: ${configs.fontSize}px;
@@ -272,17 +231,17 @@ function setStyle() {
   }`;
   let showModeStyle = '';
   switch (modes[configs.showMode]) {
-    case '全显示':
+    case 'all show':
       showModeStyle = `
         .danmu-username-long { display: inline !important; }
         .danmu-username-short { display: none !important; }`;
       break;
-    case '短用户名':
+    case 'short name':
       showModeStyle = `
         .danmu-username-long { display: none !important; }
         .danmu-username-short { display: inline !important; }`;
       break;
-    case '无用户名':
+    case 'no name':
       showModeStyle = `
         .danmu-username-long { display: none !important; }
         .danmu-username-short { display: none !important; }`;
@@ -345,6 +304,46 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=')
     observer.observe(document, { subtree: true, childList: true });
     observer.lastHref = document.location.href;
   })(window.history);
+
+  GM_registerMenuCommand("重置位置 reset position", () => {
+    setLocal(defaultPosition);
+    const danmuEle = videoDoc.querySelector('#danmu-ele');
+    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+    danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+    danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+  });
+
+  GM_registerMenuCommand("重置除了用户名外的所有设置 reset except name lists", () => {
+    let oldConfigs = deepCopy(configs);
+    localStorage.removeItem('danmuConfigs');
+    getLocal();
+    setLocal({
+      focusNames: oldConfigs.focusNames,
+      highlightNames: oldConfigs.highlightNames,
+      blockNames: oldConfigs.blockNames
+    });
+    const danmuEle = videoDoc.querySelector('#danmu-ele');
+    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+    danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+    danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+  });
+
+  GM_registerMenuCommand("重置所有设置 reset all", () => {
+    if (confirm('所有设置都会重置，名字列表会被清空，是否继续'
+      + '\nAll sets will be restored, name lists will be cleared. Continue?')) {
+      setLocal(defaultConfigs);
+      getLocal();
+      setLocal();
+      const danmuEle = videoDoc.querySelector('#danmu-ele');
+      eleRefresh(danmuEle);
+      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+      danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+      danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+    } else return;
+  });
+
 };
 
 // ✴️ 弹幕 iframe 页面
@@ -382,7 +381,16 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   };
 
   // ⬜️ 获取聊天内容 小米（改
-  const hasName = (name, arr) => arr.map(a => a.toLowerCase()).includes(name.toLowerCase());
+  const hasName = (name, arr) => {
+    name = name.toLowerCase();
+    let lowArr = arr.map(a => a.toLowerCase());
+    return lowArr.find(a => {
+      if (a.startsWith('{part}')) {
+        let str = a.replace('{part}', '');
+        return name.includes(str);
+      } else return name == a;
+    });
+  };
   function digestYtChatDom(dom) {
     const userPhotoElement = dom.querySelector("#author-photo #img");
     const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
@@ -444,17 +452,17 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-setting-status').innerText = `${configs.isFocusNames ? '✅' : '❌'}`
     + `${configs.isHighlightNames ? '✅' : '❌'}${configs.isBlockNames ? '✅' : '❌'}`;
   danmuEle.querySelector('#show-mode').innerText = modes[configs.showMode];
-  danmuEle.querySelector('#danmu-fontsize').innerText = `字号${configs.fontSize}`;
-  danmuEle.querySelector('#danmu-speed').innerText = `速度1/${configs.speed}`;
-  danmuEle.querySelector('#danmu-gap').innerText = `间距${configs.gap}`;
-  danmuEle.querySelector('#danmu-transparent').innerText = `透明${configs.transparent}`;
-  danmuEle.querySelector('#danmu-height').innerText = `高度${configs.maxHeight}`;
+  danmuEle.querySelector('#danmu-fontsize').innerText = `font size ${configs.fontSize}`;
+  danmuEle.querySelector('#danmu-speed').innerText = `speed 1/${configs.speed}`;
+  danmuEle.querySelector('#danmu-gap').innerText = `gap ${configs.gap}`;
+  danmuEle.querySelector('#danmu-transparent').innerText = `transparency ${configs.transparent}`;
+  danmuEle.querySelector('#danmu-height').innerText = `height ${configs.maxHeight}`;
   danmuEle.querySelector('#danmu-single-line').checked = configs.singleLine;
   danmuEle.querySelector('#danmu-wrap').checked = configs.wrap;
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
   danmuEle.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
-  if (modes[configs.showMode] == '全隐藏') {
+  if (modes[configs.showMode] == 'all hide') {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
@@ -476,7 +484,7 @@ function getDanmuEle() {
   danmuEle.id = 'danmu-ele';
   danmuEle.innerHTML = `
     <div id="danmu-ctrl" >
-      <button id="danmu-settings">设置</button>&nbsp;
+      <button id="danmu-settings">settings</button>&nbsp;
       <button id="show-mode"></button>&nbsp;
       <span id="danmu-setting-status"></span>
     </div>
@@ -484,11 +492,11 @@ function getDanmuEle() {
     <div id="danmu-pop-board">
       <span style="white-space: nowrap;">
         <input type="checkbox" id="danmu-single-line">
-        独行&nbsp;&nbsp;
+        single line&nbsp;&nbsp;
       </span>
       <span style="white-space: nowrap; display: none">
         <input type="checkbox" id="danmu-wrap">
-        满行&nbsp;&nbsp;
+        full line&nbsp;&nbsp;
       </span>
       <span style="white-space: nowrap;">
         <span id="danmu-fontsize"></span>
@@ -517,22 +525,25 @@ function getDanmuEle() {
       </span>&nbsp;&nbsp;
       <div style="margin:0.28em 0">
         <input type="checkbox" id="danmu-is-focus-names">
-        关注模式：只显示这些用户名的弹幕。每行一个。
+        关注模式：只显示这些用户名的弹幕。每行一个。部分匹配的格式：{part}xxxx
+        <br/>Focus mode: only shows these names. One name each line. Part match mode: {part}xxxxx
       </div>
       <textarea id="danmu-focus-names" style="width: 100%; height: 88px"></textarea>
       <div style="margin:0.28em 0">
         <input type="checkbox" id="danmu-is-highlight-names">
         高亮模式：这些用户名会高亮。
+        <br/>Hightlight mode: these names will be highlighted.
       </div>
       <textarea id="danmu-highlight-names" style="width: 100%; height: 88px"></textarea>
       <div style="margin:0.28em 0">
         <input type="checkbox" id="danmu-is-block-names">
         屏蔽模式：这些用户名会被屏蔽。
+        <br/>Block mode: these names will be blocked.
       </div>
       <textarea id="danmu-block-names" style="width: 100%; height: 88px"></textarea>
       <div style="height:0.5em"></div>
-      <button id="danmu-pop-board-cancel">取消</button>
-      <button id="danmu-pop-board-submit">确定</button>
+      <button id="danmu-pop-board-cancel">no</button>
+      <button id="danmu-pop-board-submit">yes</button>
     </div>`;
   eleRefresh(danmuEle);
   let danmuContentEl = danmuEle.querySelector('#danmu-content');
@@ -662,7 +673,7 @@ function getDanmuEle() {
       || different('#danmu-highlight-names', configs.highlightNames)
       || different('#danmu-block-names', configs.blockNames);
     if (namesChanged) {
-      if (confirm('名字列表有修改，是否丢弃这些修改？')) {
+      if (confirm('名字列表有修改，是否丢弃这些修改？\nNames changed, discard?')) {
         danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
         videoDoc.querySelector('#masthead-container').style.display = 'block';
         eleRefresh(danmuEle);
