@@ -23,7 +23,7 @@ let configs;
 const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
-  ...defaultPosition, showMode: 0, singleLine: false, wrap: false, speed: 0.8,
+  ...defaultPosition, showMode: 0, singleLine: false, wrap: false, speed: 0.8, language: 'English',
   focusNames: ['每行一个用户名。', '写成这样的格式可以部分匹配：{part}xxxxxxxx'],
   highlightNames: ['One username each line.', 'Part match syntax：{part}xxxxxxxx'], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
