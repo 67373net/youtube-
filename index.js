@@ -630,7 +630,7 @@ function getDanmuEle() {
       danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
     },
     menuResetAll: () => {
-      if (confirm(() => text[configs.language].menuResetAllConfirm)) {
+      if (confirm(text[configs.language].menuResetAllConfirm)) {
         setLocal(defaultConfigs);
         getLocal();
         setLocal();
@@ -760,7 +760,7 @@ function getDanmuEle() {
     if (different('#danmu-focus-names', configs.focusNames)
       || different('#danmu-highlight-names', configs.highlightNames)
       || different('#danmu-block-names', configs.blockNames)) {
-      if (confirm(() => text[configs.language].namesChanged)) {
+      if (confirm(text[configs.language].namesChanged)) {
         danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
         videoDoc.querySelector('#masthead-container').style.display = 'block';
         eleRefresh(danmuEle);
