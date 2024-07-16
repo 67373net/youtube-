@@ -1,50 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
@@ -71,7 +24,8 @@ const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
   ...defaultPosition, showMode: 0, singleLine: false, fullLine: false, speed: 0.8, language: 'English',
-  focusNames: [], highlightNames: []
+  focusNames: [], highlightNames: [], blockNames: [],
+  isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
 
 const text = {
@@ -91,24 +45,18 @@ const text = {
     settings: 'Settings',
     singleLine: 'Single line',
     fullLine: 'Full line', // wasted
-    focusMode: `Filter mode: Only show chats according to following rules`,
-    hightlightMode: `Highlight Mode: highlight chats according to following rules`,
+    focusMode: `Filter: Only show chats according to following rules`,
+    hightlightMode: `Highlight: highlight chats according to following rules`,
+    blockMode: `Block: Chats that matching following rules will be blocked`,
     namesChanged: 'Names lists were edited, discarded?',
     popBoardCancel: 'Cancel',
     popBoardConfirm: 'Confirm',
     nameTip: `<p>Each line is a regular expression. By default, it filters usernames. 
-    <code>[chat]</code> indicates filtering chat content, 
-    <code>[mark]</code> indicates highlighting, and <code>[off]</code> indicates that the rule is inactive.</p>
+    <code>[chat]</code> indicates filtering chat content, <code>[off]</code> indicates that the rule is inactive.</p>
     <p>Common filter examples:</p><ul>
       <li><code class="danmu-name-tip-code">chenyifaer</code>, filters usernames containing "chenyifaer";</li>
       <li><code class="danmu-name-tip-code">^chenyifaer$</code>, filters usernames exactly matching "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">[mark]^chenyifaer$</code>, highlights the username "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">[off]chenyifaer</code>,
-          <code>[off]</code> indicates that this rule is inactive;</li>
-      <li><code class="danmu-name-tip-code">^(?!chenyifaer$).+$</code>, filters usernames not equal to "chenyifaer";</li>
       <li><code class="danmu-name-tip-code">[chat]lovefafa</code>, filters messages containing "lovefafa";</li>
-      <li><code class="danmu-name-tip-code">[chat]^(?!.*kemuer).*$</code>, 
-          filters messages that do not contain "kemuer".</li>
     </ul>
     <p>If you don't know how to write regular expressions, you can ask ChatGPT ~</p>`,
   },
@@ -128,21 +76,17 @@ const text = {
     settings: '设置',
     singleLine: '单行',
     fullLine: '满行',
-    focusMode: `过滤模式：只显示以下规则过滤弹幕`,
-    hightlightMode: `高亮模式：根据以下规则高亮弹幕`,
+    focusMode: `过滤：只显示以下规则过滤弹幕`,
+    hightlightMode: `高亮：根据以下规则高亮弹幕`,
+    blockMode: `屏蔽：屏蔽符合以下规则的弹幕`,
     namesChanged: '名字列表有修改，是否丢弃这些修改？',
     popBoardCancel: '取消',
     popBoardConfirm: '确定',
-    nameTip: `<p>每行一条正则表达式，默认是筛选用户名，
-      <code>[chat]</code> 表示筛选弹幕，<code>[mark]</code> 表示高亮，<code>[off]</code> 表示不生效。</p>
+    nameTip: `<p>每行一条正则表达式，默认筛选用户名，<code>[chat]</code> 表示筛选弹幕，<code>[off]</code> 表示不生效。</p>
       <p>常用筛选举例：</p>
       <ul><li><code class="danmu-name-tip-code">陈一发儿</code>，筛选包含「陈一发儿」的用户名；</li>
           <li><code class="danmu-name-tip-code">^陈一发儿$</code>，筛选等于「陈一发儿」的用户名；</li>
-          <li><code class="danmu-name-tip-code">[mark]^陈一发儿$</code>，高亮「陈一发儿」这个用户名；</li>
-          <li><code class="danmu-name-tip-code">[off]陈一发儿</code>，<code>[off]</code> 表示这条规则不生效；</li>
-          <li><code class="danmu-name-tip-code">^(?!陈一发儿$).+$</code>，筛选不等于「陈一发儿」的用户名；</li>
           <li><code class="danmu-name-tip-code">[chat]最爱陈一发儿</code>，筛选包含「最爱陈一发儿」的弹幕；</li>
-          <li><code class="danmu-name-tip-code">[chat]^(?!.*科目二).*$</code>，筛选不包含「科目二」的弹幕。</li>
       </ul><p>如果不会写正则表达式可以问 ChatGPT ~</p>`,
   }
 };
@@ -162,20 +106,7 @@ function getLocal() {
   configs = Object.assign({}, configs, JSON.parse(configsStr));
 };
 for (let key in configs) { // 删除旧版本的 key
-  if (!(key in defaultConfigs)) {
-    switch (key) {
-      case 'highlightNames':
-        configs.highlightNames.forEach(name => configs.focusNames.push(`[mark]^${name}$`));
-        delete configs[key];
-        break;
-      case 'blockNames':
-        configs.blockNames.forEach(name => configs.focusNames.push(`^(?!${name}$).+$`));
-        delete configs[key];
-        break;
-      default:
-        delete configs[key];
-    };
-  };
+  if (!(key in defaultConfigs)) delete configs[key];
 };
 
 setLocal();
@@ -273,23 +204,31 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
 };
 
 // ⬜️ 获取聊天内容 小米（改
-function hasName(name, arr) {
-  name = name.toLowerCase();
-  let lowArr = arr.map(a => a.toLowerCase());
-  return lowArr.find(a => {
-    let regMatch = a.match(/reg:\/(.*)\//);
-    if (regMatch) {
-      regMatch = new RegExp(regMatch[1], 'i');
-      return name.match(regMatch);
-    } else return name == a;
-  });
-};
-
 function matchChat(username, content) {
-  configs.focusNames.forEach(reg => {
+  let ret = {};
+  function isMatched(username, content, reg) {
+    if (reg.includes('[off]')) return;
+    let str = username;
+    if (reg.includes('[chat]')) str = content;
     reg = new RegExp(reg, 'i');
-  })
-
+    if (str.match(reg)) return true;
+  };
+  if (configs.isFocusNames) {
+    ret.isNoShow = true;
+    configs.focusNames.forEach(reg => {
+      if (isMatched(username, content, reg)) ret.isNoShow = false;
+    })
+  }
+  if (configs.isHighlightNames) {
+    configs.focusNames.forEach(reg => {
+      if (isMatched(username, content, reg)) ret.isHighlight = true;
+    })
+  }
+  if (configs.isBlockNames) {
+    configs.focusNames.forEach(reg => {
+      if (isMatched(username, content, reg)) ret.isNoShow = true;
+    })
+  };
 };
 
 function digestYtChatDom(dom) {
@@ -304,8 +243,8 @@ function digestYtChatDom(dom) {
   let el = videoDoc.createElement('div');
   el.className = 'danmu-item';
   let matchChatRet = matchChat(username, content);
-  if (matchChatRet.isReturn) return;
-  if (matchChatRet.isHighlight) el.className += 'danmu-highlight ';
+  if (matchChatRet.isNoShow) return;
+  if (matchChatRet.isHighlight) el.className += ' danmu-highlight ';
   let color = '';
   if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
     username = "(SC) " + username;
@@ -496,6 +435,13 @@ function setStyle() {
     color: black;
     font-size: 1.18em;
   }
+  #danmu-ele code {
+    color: orange;
+  }
+  #danmu-textarea textarea {
+    flex: 1; /* 填充剩余空间 */
+    padding: 8px;
+  }
   #danmu-content {
     font-size: ${configs.fontSize}px;
     max-height: ${configs.maxHeight}px;
@@ -523,7 +469,8 @@ function setStyle() {
   }
   .danmu-text {
     color: white;
-  }`;
+  }`
+    ;
   let showModeStyle = '';
   switch (text[configs.language].modes[configs.showMode]) {
     case 'Show all':
@@ -549,6 +496,62 @@ function setStyle() {
 };
 
 // ⬜️ 文字 + 样式初始化
+const danmuHTML = `
+<div id="danmu-ctrl" >
+  <button id="danmu-settings"></button>&nbsp;
+  <button id="danmu-show-mode"></button>&nbsp;
+  <button id="danmu-language"></button>&nbsp;
+</div>
+<div id="danmu-content"></div>
+<div id="danmu-pop-board">
+  <span style="white-space: nowrap;">
+    <input type="checkbox" id="danmu-single-line">
+  </span>
+  <span style="white-space: nowrap; display: none">
+    <input type="checkbox" id="danmu-full-line">
+  </span>
+  <span style="white-space: nowrap;">
+    <span id="danmu-fontsize"></span>
+    <button id="danmu-fontsize-add">+</button>
+    <button id="danmu-fontsize-minus">-</button>
+  </span>&nbsp;&nbsp;
+  <span style="white-space: nowrap;">
+    <span id="danmu-speed"></span>
+    <button id="danmu-speed-add">+</button>
+    <button id="danmu-speed-minus">-</button>
+  </span>&nbsp;&nbsp;
+  <span style="white-space: nowrap;">
+    <span id="danmu-gap"></span>
+    <button id="danmu-gap-add">+</button>
+    <button id="danmu-gap-minus">-</button>
+  </span>&nbsp;&nbsp;
+  <span style="white-space: nowrap;">
+    <span id="danmu-transparent"></span>
+    <button id="danmu-transparent-add">+</button>
+    <button id="danmu-transparent-minus">-</button>
+  </span>&nbsp;&nbsp;
+  <span style="white-space: nowrap;">
+    <span id="danmu-height"></span>
+    <button id="danmu-height-add">+</button>
+    <button id="danmu-height-minus">-</button>
+  </span>&nbsp;&nbsp;
+  <div style="margin:0.28em 0; display: flex; height: 328px">
+    <div id="danmu-textarea" style="display: flex; flex-direction: column; width: 50%;">
+      <input type="checkbox" id="danmu-is-focus-names">
+      <textarea id="danmu-focus-names"></textarea>
+      <input type="checkbox" id="danmu-is-highlight-names">
+      <textarea id="danmu-highlight-names"></textarea>
+      <input type="checkbox" id="danmu-is-block-names">
+      <textarea id="danmu-block-names"></textarea>
+    </div>
+    <div id="danmu-name-tip" style="width: 50%; pading: 8px; overflow-y: auto;"></div>
+  </div>
+  <div style="display: inline-block; text-align: center;width: 100%;">
+    <button id="danmu-pop-board-cancel" style"display: inline-block; margin: 0 5px"></button>
+    <button id="danmu-pop-board-submit" style"display: inline-block; margin: 0 5px"></button>
+  </div>      
+</div>`;
+
 function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle = danmuEle || videoDoc.querySelector('#danmu-ele');
   if (!danmuEle) return;
@@ -566,6 +569,16 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-gap').innerText = `${text[configs.language].gap} ${configs.gap}`;
   danmuEle.querySelector('#danmu-transparent').innerText = `${text[configs.language].transparency} ${configs.transparent}`;
   danmuEle.querySelector('#danmu-height').innerText = `${text[configs.language].height} ${configs.maxHeight}`;
+  danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
+  danmuEle.querySelector('#danmu-is-focus-names')
+    .insertAdjacentText('afterend', `${text[configs.language].focusMode}`);
+  danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
+  danmuEle.querySelector('#danmu-is-highlight-names')
+    .insertAdjacentText('afterend', `${text[configs.language].isHighlightNames}`);
+  danmuEle.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
+  danmuEle.querySelector('#danmu-is-block-names')
+    .insertAdjacentText('afterend', `${text[configs.language].isBlockNames}`);
+
   danmuEle.querySelector('#danmu-name-tip').innerText = `${text[configs.language].nameTip}`;
   danmuEle.querySelector('#danmu-pop-board-cancel').innerText = `${text[configs.language].popBoardCancel}`;
   danmuEle.querySelector('#danmu-pop-board-cancel').innerText = `${text[configs.language].popBoardConfirm}`;
@@ -576,61 +589,18 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     try { checkHeight(danmuEle) } catch { videoDoc.danmuObj.isCheckingHeight = false };
   };
   setStyle();
-  if (ifTextRefresh) danmuEle.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
+  if (ifTextRefresh) {
+    danmuEle.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
+    danmuEle.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
+    danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
+  }
 };
 
 // ⬜️⬜️ 建立基本元素
 function getDanmuEle() {
   let danmuEle = document.createElement('div')
   danmuEle.id = 'danmu-ele';
-  danmuEle.innerHTML = `
-    <div id="danmu-ctrl" >
-      <button id="danmu-settings"></button>&nbsp;
-      <button id="danmu-show-mode"></button>&nbsp;
-      <button id="danmu-language"></button>&nbsp;
-    </div>
-    <div id="danmu-content"></div>
-    <div id="danmu-pop-board">
-      <span style="white-space: nowrap;">
-        <input type="checkbox" id="danmu-single-line">
-      </span>
-      <span style="white-space: nowrap; display: none">
-        <input type="checkbox" id="danmu-full-line">
-      </span>
-      <span style="white-space: nowrap;">
-        <span id="danmu-fontsize"></span>
-        <button id="danmu-fontsize-add">+</button>
-        <button id="danmu-fontsize-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
-        <span id="danmu-speed"></span>
-        <button id="danmu-speed-add">+</button>
-        <button id="danmu-speed-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
-        <span id="danmu-gap"></span>
-        <button id="danmu-gap-add">+</button>
-        <button id="danmu-gap-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
-        <span id="danmu-transparent"></span>
-        <button id="danmu-transparent-add">+</button>
-        <button id="danmu-transparent-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <span style="white-space: nowrap;">
-        <span id="danmu-height"></span>
-        <button id="danmu-height-add">+</button>
-        <button id="danmu-height-minus">-</button>
-      </span>&nbsp;&nbsp;
-      <div style="margin:0.28em 0; display: flex;">
-        <textarea id="danmu-focus-names" style="width: 28%; height: 88px; border: 1px solid #ccc;"></textarea>
-        <div id="danmu-name-tip" style="width: 58%; overflow-y: auto; border: 1px solid #ccc;"></div>
-      </div>
-      <div style="display: inline-block; text-align: center;width: 100%;">
-        <button id="danmu-pop-board-cancel" style"display: inline-block; margin: 0 5px"></button>
-        <button id="danmu-pop-board-submit" style"display: inline-block; margin: 0 5px"></button>
-      </div>      
-    </div>`;
+  danmuEle.innerHTML = danmuHTML;
   eleRefresh(danmuEle);
   let danmuContentEl = danmuEle.querySelector('#danmu-content');
 
@@ -768,6 +738,10 @@ function getDanmuEle() {
   function settingSubmit() {
     setLocal({
       focusNames: danmuEle.querySelector('#danmu-focus-names')
+        .value.split('\n').filter(item => item.trim()),
+      focusNames: danmuEle.querySelector('#danmu-highlight-names')
+        .value.split('\n').filter(item => item.trim()),
+      focusNames: danmuEle.querySelector('#danmu-block-names')
         .value.split('\n').filter(item => item.trim())
     });
     danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
@@ -779,7 +753,9 @@ function getDanmuEle() {
       a = JSON.stringify(a);
       if (a != JSON.stringify(b)) return true;
     }
-    if (different('#danmu-focus-names', configs.focusNames)) {
+    if (different('#danmu-focus-names', configs.focusNames)
+      || different('#danmu-highlight-names', configs.highlightNames)
+      || different('#danmu-block-names', configs.blockNames)) {
       if (confirm(() => text[configs.language].namesChanged)) {
         danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
         videoDoc.querySelector('#masthead-container').style.display = 'block';
@@ -794,6 +770,20 @@ function getDanmuEle() {
     settingCancel()
   });
   danmuEle.querySelector('#danmu-pop-board-submit').addEventListener('click', e => settingSubmit());
+
+  // ⬜️ 弹幕过滤设置开关
+  danmuEle.querySelector('#danmu-is-focus-names').addEventListener('change', event => {
+    setLocal({ isFocusNames: event.target.checked });
+    eleRefresh(danmuEle);
+  });
+  danmuEle.querySelector('#danmu-is-highlight-names').addEventListener('change', event => {
+    setLocal({ isHighlightNames: event.target.checked });
+    eleRefresh(danmuEle);
+  });
+  danmuEle.querySelector('#danmu-is-block-names').addEventListener('change', event => {
+    setLocal({ isBlockNames: event.target.checked });
+    eleRefresh(danmuEle);
+  });
 
   // ⬜️⬜️ 阻断点击事件穿透 #屏蔽
   danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
