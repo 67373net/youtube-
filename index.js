@@ -570,7 +570,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-fontsize').innerText = `${text[configs.language].fontSize} ${configs.fontSize}`;
   danmuEle.querySelector('#danmu-speed').innerText = `${text[configs.language].speed} 1/${configs.speed}`;
   danmuEle.querySelector('#danmu-gap').innerText = `${text[configs.language].gap} ${configs.gap}`;
-  danmuEle.querySelector('#danmu-transparent').innerText = `${text[configs.language].transparency} ${configs.transparent}`;
+  danmuEle.querySelector('#danmu-transparent').innerText = `${text[configs.language].transparency} ${configs.transparent.toFixed(2)}`;
   danmuEle.querySelector('#danmu-height').innerText = `${text[configs.language].height} ${configs.maxHeight}`;
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-focus-names').nextSibling.textContent = `${text[configs.language].focusMode}`;
@@ -711,6 +711,8 @@ function getDanmuEle() {
   let transparentTimerI;
   function transparentChange(change) {
     change = Number((configs.transparent + change).toFixed(2));
+    change = Math.max(0, change);
+    change = Math.min(1, change);
     setLocal({ transparent: change });
     eleRefresh(danmuEle);
   };
