@@ -28,6 +28,7 @@ const defaultConfigs = {
   highlightNames: ['One username each line.', 'Part match syntax：{part}xxxxxxxx'], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
+
 function deepCopy(a) {
   try {
     return structuredClone(a);
