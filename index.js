@@ -506,9 +506,6 @@ const danmuHTML = `
   <span style="white-space: nowrap;">
     <input type="checkbox" id="danmu-single-line">abc
   </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap; display: none">
-    <input type="checkbox" id="danmu-full-line">
-  </span>&nbsp;&nbsp;
   <span style="white-space: nowrap;">
     <span id="danmu-fontsize"></span>
     <button id="danmu-fontsize-add">+</button>
@@ -564,9 +561,6 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-single-line').checked = configs.singleLine;
   danmuEle.querySelector('#danmu-single-line').nextSibling.textContent =
     `${text[configs.language].singleLine}`;
-  danmuEle.querySelector('#danmu-full-line').checked = configs.fullLine;
-  danmuEle.querySelector('#danmu-full-line').nextSibling.textContent =
-    `${text[configs.language].fullLine}`;
   danmuEle.querySelector('#danmu-fontsize').innerText = `${text[configs.language].fontSize} ${configs.fontSize}`;
   danmuEle.querySelector('#danmu-speed').innerText = `${text[configs.language].speed} 1/${configs.speed}`;
   danmuEle.querySelector('#danmu-gap').innerText = `${text[configs.language].gap} ${configs.gap}`;
@@ -676,10 +670,6 @@ function getDanmuEle() {
   // ⬜️ 行显示模式
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
-    setStyle();
-  });
-  danmuEle.querySelector('#danmu-full-line').addEventListener('change', event => {
-    setLocal({ fullLine: event.target.checked });
     setStyle();
   });
 
