@@ -23,7 +23,8 @@ let configs;
 const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
-  ...defaultPosition, showMode: 0, singleLine: false, fullLine: false, speed: 0.8, language: 'English',
+  ...defaultPosition, showMode: 0, singleLine: false, /* 这里暂时不用但不要删除：*/fullLine: false,
+  speed: 1, language: 'English',
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
@@ -52,12 +53,15 @@ const text = {
     popBoardCancel: 'Cancel',
     popBoardConfirm: 'Confirm',
     nameTip: `<p>Each line is a regular expression. By default, it filters usernames.
-    <code>[chat]</code> indicates filtering chat content, <code>[off]</code> indicates that the rule is inactive.</p>
+    <code>[chat]</code> indicates filtering chat content, 
+    <code>[off]</code> indicates that the rule is inactive.</p>
     <br/><p>Common filter examples:</p><ul>
-      <li><code class="danmu-name-tip-code">chenyifaer</code>, filters usernames containing "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">^chenyifaer$</code>, filters usernames exactly matching "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">[chat]lovefafa</code>, filters messages containing "lovefafa";</li>
+      <li><code class="danmu-name-tip-code">chenyifaer</code>  filters usernames containing "chenyifaer";</li>
+      <li><code class="danmu-name-tip-code">^chenyifaer$</code>  
+        filters usernames exactly matching "chenyifaer";</li>
+      <li><code class="danmu-name-tip-code">[chat]lovefafa</code>  filters messages containing "lovefafa";</li>
     </ul><br/><p>If you don't know how to write regular expressions, you can ask ChatGPT ~</p>`,
+    cpoiedTip: 'Copied',
   },
   "中文": {
     nextLanguage: 'English',
@@ -66,7 +70,7 @@ const text = {
     menuResetExceptNames: '重置除了名字列表外的所有设置',
     menuResetAll: '重置所有设置',
     menuResetAllConfirm: '所有设置都会重置，名字列表会被清空，是否继续',
-    modes: ['全显示', '短用户名', '无用户名', '全隐藏'], // 「全隐藏」这三个字不要改
+    modes: ['全显示', '短用户名', '无用户名', '全隐藏'/*「全隐藏」这三个字不要改 */],
     fontSize: '字号',
     speed: '速度',
     gap: '间隔',
@@ -74,19 +78,21 @@ const text = {
     height: '高度',
     settings: '设置',
     singleLine: '单列',
-    // fullLine: '满行',
+    fullLine: '满行',
     focusMode: `过滤：只显示以下规则过滤弹幕`,
     highlightMode: `高亮：根据以下规则高亮弹幕`,
     blockMode: `屏蔽：屏蔽符合以下规则的弹幕`,
     namesChanged: '名字列表有修改，是否丢弃这些修改？',
     popBoardCancel: '取消',
     popBoardConfirm: '确定',
-    nameTip: `<p>每行一条正则表达式，默认筛选用户名，<code>[chat]</code> 表示筛选弹幕，<code>[off]</code> 表示不生效。</p>
+    nameTip: `<p>每行一条正则表达式。默认筛选用户名，
+      <code>[chat]</code> 表示筛选弹幕，<code>[off]</code> 表示不生效。</p>
       <br/><p>常用筛选举例：</p>
-      <ul><li><code class="danmu-name-tip-code">陈一发儿</code>，筛选包含「陈一发儿」的用户名；</li>
-          <li><code class="danmu-name-tip-code">^陈一发儿$</code>，筛选等于「陈一发儿」的用户名；</li>
-          <li><code class="danmu-name-tip-code">[chat]最爱陈一发儿</code>，筛选包含「最爱陈一发儿」的弹幕；</li>
+      <ul><li><code class="danmu-name-tip-code">陈一发儿</code> 筛选包含「陈一发儿」的用户名；</li>
+          <li><code class="danmu-name-tip-code">^陈一发儿$</code> 筛选等于「陈一发儿」的用户名；</li>
+          <li><code class="danmu-name-tip-code">[chat]最爱陈一发儿</code> 筛选包含「最爱陈一发儿」的弹幕；</li>
       </ul><br/><p>如果不会写正则表达式可以问 ChatGPT ~</p>`,
+    cpoiedTip: '已复制',
   }
 };
 
@@ -332,13 +338,14 @@ function removeCoverdTops(danmuEle, force) {
         l.firstLine[i].parentNode.removeChild(l.firstLine[i]);
       };
       let contentEl = danmuEle.querySelector('#danmu-content');
-      contentEl.style.marginTop = Math.min(0, parseFloat(getComputedStyle(contentEl).marginTop) + l.baseHeight) + 'px';
+      contentEl.style.marginTop =
+        Math.min(0, parseFloat(getComputedStyle(contentEl).marginTop) + l.baseHeight) + 'px';
       l = linesInfo(danmuEle, true, false);
     };
   } catch (e) { console.log(e) };
   return l;
 };
-// 检查高度设计
+// 检查高度设计：
 // 检查间隔 1/25 秒 timesVar
 // 检查是否有完全覆盖的弹幕并删除
 // 如果有 overlap 或 底部超框，说明需要调整
@@ -377,7 +384,7 @@ function checkHeight(danmuEle) {
   setTimeout(() => {
     videoDoc.danmuObj.isCheckingHeight = false;
     checkHeight(danmuEle);
-  }, timesVar * configs.speed * 1000);
+  }, timesVar * 0.8 / configs.speed * 1000);
 };
 
 // ⬜️ 样式初始化（加到 head）
@@ -438,6 +445,10 @@ function setStyle() {
   #danmu-pop-board textarea {
     width: 92%;
     height: 288px;
+  }
+  #danmu-pop-board ul {
+    list-style-type: disc;
+    margin-left: 1.8em
   }
   #danmu-ele code {
     color: Brown;
@@ -532,7 +543,8 @@ const danmuHTML = `
     <button id="danmu-height-minus">-</button>
   </span>&nbsp;&nbsp;
   <div style="margin:1.8em 0; display: flex;">
-    <div id="danmu-name-tip" style="padding: 1.28em 1.28em 0 0; overflow-y: auto; word-wrap: break-word; "></div>
+    <div id="danmu-name-tip" style="font-size: 1.18em; line-height: 1.4em; 
+      padding: 1.28em 1.28em 0 0; overflow-y: auto; word-wrap: break-word; "></div>
     <div>
       <input type="checkbox" id="danmu-is-focus-names">
       <textarea id="danmu-focus-names"></textarea>
@@ -562,9 +574,10 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-single-line').nextSibling.textContent =
     `${text[configs.language].singleLine}`;
   danmuEle.querySelector('#danmu-fontsize').innerText = `${text[configs.language].fontSize} ${configs.fontSize}`;
-  danmuEle.querySelector('#danmu-speed').innerText = `${text[configs.language].speed} 1/${configs.speed}`;
+  danmuEle.querySelector('#danmu-speed').innerText = `${text[configs.language].speed} ${configs.speed.toFixed(2)}`;
   danmuEle.querySelector('#danmu-gap').innerText = `${text[configs.language].gap} ${configs.gap}`;
-  danmuEle.querySelector('#danmu-transparent').innerText = `${text[configs.language].transparency} ${configs.transparent.toFixed(2)}`;
+  danmuEle.querySelector('#danmu-transparent').innerText =
+    `${text[configs.language].transparency} ${configs.transparent.toFixed(2)}`;
   danmuEle.querySelector('#danmu-height').innerText = `${text[configs.language].height} ${configs.maxHeight}`;
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-focus-names').nextSibling.textContent = `${text[configs.language].focusMode}`;
@@ -588,6 +601,13 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
     danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
   }
+  let codeEles = danmuEle.querySelectorAll('code');
+  codeEles.forEach(el => {
+    el.addEventListener('click', e => {
+      navigator.clipboard.writeText(el.innerText);
+      alert(text[configs.language].cpoiedTip);
+    });
+  });
 };
 
 // ⬜️⬜️ 建立基本元素
@@ -686,8 +706,8 @@ function getDanmuEle() {
     setLocal({ speed: Math.max(0, Number((configs.speed + change).toFixed(2))) });
     eleRefresh(danmuEle);
   };
-  danmuEle.querySelector('#danmu-speed-add').addEventListener('click', e => speedChange(-0.05));
-  danmuEle.querySelector('#danmu-speed-minus').addEventListener('click', e => speedChange(0.05));
+  danmuEle.querySelector('#danmu-speed-add').addEventListener('click', e => speedChange(0.05));
+  danmuEle.querySelector('#danmu-speed-minus').addEventListener('click', e => speedChange(-0.05));
 
   // ⬜️ 控制功能 - 间距大小
   function gapChange(change) {
@@ -717,8 +737,10 @@ function getDanmuEle() {
     clearInterval(transparentTimerI);
     videoDoc.removeEventListener('mouseup', transparentMouseStop);
   }
-  danmuEle.querySelector('#danmu-transparent-add').addEventListener('mousedown', e => transparentMouseDown(0.01));
-  danmuEle.querySelector('#danmu-transparent-minus').addEventListener('mousedown', e => transparentMouseDown(-0.01));
+  danmuEle.querySelector('#danmu-transparent-add')
+    .addEventListener('mousedown', e => transparentMouseDown(0.01));
+  danmuEle.querySelector('#danmu-transparent-minus')
+    .addEventListener('mousedown', e => transparentMouseDown(-0.01));
 
   // ⬜️ 控制功能 - 高度
   function setHeight(num) {
