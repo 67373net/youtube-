@@ -2,7 +2,7 @@
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
 // @version      0.1.22
-// @description  Youtube floating chat 悬浮弹幕，丝滑滚动
+// @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain 
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
 // @grant        GM_registerMenuCommand
