@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.22
-// @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain 
+// @version      0.1.23
+// @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
 // @grant        GM_registerMenuCommand
@@ -187,10 +187,13 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   function main() {
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
+      if(mutations.length > 50) return; // 防止一次大量加载
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
-          if (!danmuEle) danmuEle = parent.document.querySelector("#danmu-ele");
-          if (!danmuEle) return;
+          if (!danmuEle) {
+            danmuEle = parent.document.querySelector("#danmu-ele");
+            if (!danmuEle) return;
+          };
           if (node.nodeType !== 1) return;
           if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
           let el = digestYtChatDom(node);
@@ -375,7 +378,7 @@ function checkHeight(danmuEle) {
     let move = Math.max(l.diff, l.distance);
     let currentMove = move * timesVar;
     currentMove = Math.max(l.baseHeight * timesVar, currentMove);
-    currentMove = Math.min(l.baseHeight * 0.8, currentMove);
+    // currentMove = Math.min(l.baseHeight * 0.8, currentMove); 这里限制了最高速度，现在解开
     currentMove = Math.min(move, currentMove);
     let opacity = l.distance / l.baseHeight;
     l.firstLine.forEach(node => {
