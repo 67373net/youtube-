@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.19
+// @version      0.1.20
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -43,7 +43,7 @@ const text = {
     transparency: 'Transparency',
     height: 'Height',
     settings: 'Settings',
-    singleLine: 'Single line',
+    singleLine: 'Single Column',
     fullLine: 'Full line', // wasted
     focusMode: `Filter: Only show chats according to following rules`,
     highlightMode: `Highlight: highlight chats according to following rules`,
@@ -73,7 +73,7 @@ const text = {
     transparency: '透明度',
     height: '高度',
     settings: '设置',
-    singleLine: '单行',
+    singleLine: '单列',
     // fullLine: '满行',
     focusMode: `过滤：只显示以下规则过滤弹幕`,
     highlightMode: `高亮：根据以下规则高亮弹幕`,
