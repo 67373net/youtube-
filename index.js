@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube 悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.20
+// @version      0.1.21
 // @description  Youtube 悬浮弹幕，可拖动位置，可调节宽度
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -53,11 +53,11 @@ const text = {
     popBoardCancel: 'Cancel',
     popBoardConfirm: 'Confirm',
     nameTip: `<p>Each line is a regular expression. By default, it filters usernames.
-    <code>[chat]</code> indicates filtering chat content, 
+    <code>[chat]</code> indicates filtering chat content,
     <code>[off]</code> indicates that the rule is inactive.</p>
     <br/><p>Common filter examples:</p><ul>
       <li><code class="danmu-name-tip-code">chenyifaer</code>  filters usernames containing "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">^chenyifaer$</code>  
+      <li><code class="danmu-name-tip-code">^chenyifaer$</code>
         filters usernames exactly matching "chenyifaer";</li>
       <li><code class="danmu-name-tip-code">[chat]lovefafa</code>  filters messages containing "lovefafa";</li>
     </ul><br/><p>If you don't know how to write regular expressions, you can ask ChatGPT ~</p>`,
@@ -442,9 +442,12 @@ function setStyle() {
     color: black;
     font-size: 1.18em;
   }
-  #danmu-pop-board textarea {
+  #danmu-name-container div {
+    width: 100%
+  }
+  #danmu-name-container textarea {
     width: 92%;
-    height: 288px;
+    height: 88%
   }
   #danmu-pop-board ul {
     list-style-type: disc;
@@ -513,7 +516,7 @@ const danmuHTML = `
   <button id="danmu-language"></button>&nbsp;
 </div>
 <div id="danmu-content"></div>
-<div id="danmu-pop-board">
+<div id="danmu-pop-board" style="min-width: 518px">
   <span style="white-space: nowrap;">
     <input type="checkbox" id="danmu-single-line">abc
   </span>&nbsp;&nbsp;
@@ -542,9 +545,9 @@ const danmuHTML = `
     <button id="danmu-height-add">+</button>
     <button id="danmu-height-minus">-</button>
   </span>&nbsp;&nbsp;
-  <div style="margin:1.8em 0; display: flex;">
-    <div id="danmu-name-tip" style="font-size: 1.18em; line-height: 1.4em; 
-      padding: 1.28em 1.28em 0 0; overflow-y: auto; word-wrap: break-word; "></div>
+  <div id="danmu-name-container" style="margin:1.8em 0; display: flex; height: 288px;">
+    <div id="danmu-name-tip" style="font-size: 1.18em; line-height: 1.4em;
+      margin-right: 0.8em; padding-top: 0.5em; overflow-y: auto; word-wrap: break-word; "></div>
     <div>
       <input type="checkbox" id="danmu-is-focus-names">
       <textarea id="danmu-focus-names"></textarea>
