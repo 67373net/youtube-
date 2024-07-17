@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.21
+// @version      0.1.22
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -196,10 +196,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           let el = digestYtChatDom(node);
           if (!el) return;
           danmuEle.querySelector('#danmu-content').appendChild(el);
-          try { checkHeight(danmuEle) } catch (e) {
-            console.log(e);
-            videoDoc.danmuObj.isCheckingHeight = false
-          };
+          checkHeight(danmuEle);
         });
       });
     });
@@ -367,24 +364,31 @@ const timesVar = 1 / 28;
 function checkHeight(danmuEle) {
   if (videoDoc.danmuObj.isCheckingHeight) return;
   videoDoc.danmuObj.isCheckingHeight = true;
-  // 检查是否有完全覆盖的弹幕并删除
-  let l = removeCoverdTops(danmuEle);
-  // 如果有 overlap 或 底部超框，说明需要调整
-  if (!l) { videoDoc.danmuObj.isCheckingHeight = false; return; };
-  if (!l.isOverlap1 && l.diff <= 0) { videoDoc.danmuObj.isCheckingHeight = false; return; };
-  // 移动基础
-  let move = Math.max(l.diff, l.distance);
-  let currentMove = move * timesVar;
-  currentMove = Math.max(l.baseHeight * timesVar, currentMove);
-  currentMove = Math.min(l.baseHeight * 0.8, currentMove);
-  currentMove = Math.min(move, currentMove);
-  let opacity = l.distance / l.baseHeight;
-  l.firstLine.forEach(node => {
-    try { node.style.opacity = opacity } catch (e) { console.log(e) };
-  });
-  let contentEl = danmuEle.querySelector('#danmu-content');
-  let currentTop = parseFloat(getComputedStyle(contentEl).marginTop);
-  contentEl.style.marginTop = `${currentTop - currentMove}px`;
+
+  try {
+    // 检查是否有完全覆盖的弹幕并删除
+    let l = removeCoverdTops(danmuEle);
+    // 如果有 overlap 或 底部超框，说明需要调整
+    if (!l) { videoDoc.danmuObj.isCheckingHeight = false; return; };
+    if (!l.isOverlap1 && l.diff <= 0) { videoDoc.danmuObj.isCheckingHeight = false; return; };
+    // 移动基础
+    let move = Math.max(l.diff, l.distance);
+    let currentMove = move * timesVar;
+    currentMove = Math.max(l.baseHeight * timesVar, currentMove);
+    currentMove = Math.min(l.baseHeight * 0.8, currentMove);
+    currentMove = Math.min(move, currentMove);
+    let opacity = l.distance / l.baseHeight;
+    l.firstLine.forEach(node => {
+      try { node.style.opacity = opacity } catch (e) { console.log(e) };
+    });
+    let contentEl = danmuEle.querySelector('#danmu-content');
+    let currentTop = parseFloat(getComputedStyle(contentEl).marginTop);
+    contentEl.style.marginTop = `${currentTop - currentMove}px`;
+  } catch (e) {
+    videoDoc.danmuObj.isCheckingHeight = false;
+    console.log(e);
+  };
+
   setTimeout(() => {
     videoDoc.danmuObj.isCheckingHeight = false;
     checkHeight(danmuEle);
@@ -600,10 +604,7 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    try { checkHeight(danmuEle) } catch (e) {
-      console.log(e)
-      videoDoc.danmuObj.isCheckingHeight = false
-    };
+    checkHeight(danmuEle);
   };
   setStyle();
   if (ifTextRefresh) {
@@ -701,6 +702,7 @@ function getDanmuEle() {
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
     setStyle();
+    checkHeight(danmuEle);
   });
 
   // ⬜️ 控制功能 - 字号大小
