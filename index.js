@@ -99,7 +99,8 @@ const text = {
 function deepCopy(a) {
   try {
     return structuredClone(a);
-  } catch {
+  } catch (e) {
+    console.log(e);
     return JSON.parse(JSON.stringify(a));
   }
 };
@@ -135,7 +136,7 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=')
           let danmuEle = getDanmuEle();
           danmuEle.danmuurl = videoDoc.URL;
           document.querySelector('body').appendChild(danmuEle)
-        } catch { };
+        } catch (e) { console.log(e) };
       }
     }, 888);
     setTimeout(() => {
@@ -195,7 +196,10 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
           let el = digestYtChatDom(node);
           if (!el) return;
           danmuEle.querySelector('#danmu-content').appendChild(el);
-          try { checkHeight(danmuEle) } catch { videoDoc.danmuObj.isCheckingHeight = false };
+          try { checkHeight(danmuEle) } catch (e) {
+            console.log(e);
+            videoDoc.danmuObj.isCheckingHeight = false
+          };
         });
       });
     });
@@ -285,7 +289,7 @@ function digestYtChatDom(dom) {
             break;
         }
       }
-    } catch (e) { }
+    } catch (e) { console.log(e) };
   }, 588)
   return el;
 };
@@ -376,7 +380,7 @@ function checkHeight(danmuEle) {
   currentMove = Math.min(move, currentMove);
   let opacity = l.distance / l.baseHeight;
   l.firstLine.forEach(node => {
-    try { node.style.opacity = opacity } catch { };
+    try { node.style.opacity = opacity } catch (e) { console.log(e) };
   });
   let contentEl = danmuEle.querySelector('#danmu-content');
   let currentTop = parseFloat(getComputedStyle(contentEl).marginTop);
@@ -596,7 +600,10 @@ function eleRefresh(danmuEle, ifTextRefresh) {
     danmuEle.querySelector('#danmu-content').style.display = 'none';
   } else {
     danmuEle.querySelector('#danmu-content').style.display = 'block';
-    try { checkHeight(danmuEle) } catch { videoDoc.danmuObj.isCheckingHeight = false };
+    try { checkHeight(danmuEle) } catch (e) {
+      console.log(e)
+      videoDoc.danmuObj.isCheckingHeight = false
+    };
   };
   setStyle();
   if (ifTextRefresh) {
