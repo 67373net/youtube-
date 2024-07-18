@@ -296,9 +296,10 @@ function digestYtChatDom(dom) {
 
 // ⬜️ 动态滑动弹幕逻辑，略有些复杂
 // css 的 transition 方案：弃用，自动设置时间，但多个元素一起变会卡
-// height 和 tramsform 方案：
-//   弃用，多个 div 位于一行时，高度设置没用，还是会挤住下面的元素，可能是 div 内部元素的问题。但懒得解决
-// margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡？
+/* height 和 tramsform 方案：弃用，多个 div 位于一行时，高度设置没用，
+    还是会挤住下面的元素，可能是 div 内部元素的问题，也可能是多个元素一起变化时就是会卡 */
+// margin 的方案：弃用，多个元素还是会卡，看来多个元素一起变化的话无论如何都会卡
+// 更好的方案：在外面再套一层 div，避免底端上移。但先不改了。
 function linesInfo(danmuEle, ifFirstLine, ifSecondLine) {
   let children = danmuEle.querySelectorAll('.danmu-item');
   if (children.length == 0) return;
