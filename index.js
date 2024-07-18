@@ -964,3 +964,73 @@ function getDanmuEle() {
 //   弹幕慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
 //   弹幕快：https://www.youtube.com/live/m8nButUrSYk?si=6ezF7VgSTtEKeoQl&t=6452
 //   直播中：https://www.youtube.com/watch?v=jfKfPfyJRdk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==UserScript==
+// @name         Youtube smooth floating chat 丝滑悬浮弹幕
+// @namespace    67373tools
+// @version      0.1.22
+// @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
+// @author       XiaoMIHongZHaJi
+// @match        https://www.youtube.com/*
+// @match        https://www.twitch.tv/*
+// @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
+// @license MIT
+// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
+// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
+// ==/UserScript==
+
+// ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
+// 如果有 bug，在上面网站也可以找到反馈联系方式
+
+if (location.href.startsWith('https://www.youtube.com/watch?v=')
+  || location.href.startsWith('https://www.youtube.com/live/')) {
+  let twitchIframe = document.createElement('iframe');
+  twitchIframe.src = 'https://www.twitch.tv/embed/jinnytty/chat?parent=www.youtube.com';
+  twitchIframe.style.display = 'none';
+  document.querySelector('body').appendChild(twitchIframe);
+
+  function sendMessage() {
+    console.log('准备发消息');
+    twitchIframe.contentWindow.postMessage('Hello from parent 2222', 'https://www.twitch.tv');
+  }
+  window.addEventListener('message', function(event) {
+//     if (event.origin !== 'https://www.twitch.tv') {
+//       console.log('Message from iframe: 11fdafda1111', event.data);
+//       return;
+//     }
+    console.log('Message from iframe: 111111', event.data, event.origin);
+  });
+  setTimeout(sendMessage,3000)
+}
+
+if (location.href.startsWith('https://www.twitch.tv/embed/')) {
+  console.log('进入twitch')
+  window.addEventListener('message', event => {
+//     if (event.origin !== 'https://www.google.com'){
+//         console.log('Message from parefdsfadnt: 456 ', event.data);
+//         return;
+//     }
+    console.log('Message from parent: 456 ', event.data, event.origin);
+    event.source.postMessage('Hello from iframe 123', event.origin);
+  });
+}
+
