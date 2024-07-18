@@ -187,7 +187,7 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   function main() {
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
-      if(mutations.length > 50) return; // 防止一次大量加载
+      if(mutations.length > 500) return; // 防止一次大量加载
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
           if (!danmuEle) {
@@ -957,7 +957,9 @@ function getDanmuEle() {
 // 边缘测试：
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
+// greasyfork: https://greasyfork.org/en/scripts/500209-
 // 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
 // 测试地址
-// 慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
-// 快：https://www.youtube.com/live/5FUWAwWJrkQ?t=18195s
+//   弹幕慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
+//   弹幕快：https://www.youtube.com/live/m8nButUrSYk?si=6ezF7VgSTtEKeoQl&t=6452
+//   直播中：https://www.youtube.com/watch?v=jfKfPfyJRdk
