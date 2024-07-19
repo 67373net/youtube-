@@ -1,43 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
@@ -66,7 +26,7 @@ const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
   ...defaultPosition, showMode: 0, singleLine: false, /* 这里暂时不用但不要删除：*/fullLine: false,
-  speed: 1, language: 'English', twitchLink: '', isTwitchRemember: true,
+  speed: 1, language: 'English', twitchLink: '', isTwitchActive: true,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
@@ -88,10 +48,12 @@ const text = {
     settings: 'Settings',
     singleLine: 'Single Column',
     fullLine: 'Full line', // wasted
+    twichTip: 'Twitch chat merge',
+    twitchLinkPlaceholder: 'Enter Twitch room link',
+    twitchUrlMatchAlert: 'The URL match failed. Please enter a valid Twitch room address.',
     focusMode: `Filter: Only show chats according to following rules`,
     highlightMode: `Highlight: highlight chats according to following rules`,
     blockMode: `Block: Chats that matching following rules will be blocked`,
-    popBoardConfirm: 'Close',
     nameTip: `<p>Each line is a regular expression. By default, it filters usernames.
     <code>[chat]</code> indicates filtering chat content,
     <code>[off]</code> indicates that the rule is inactive.</p>
@@ -103,10 +65,7 @@ const text = {
       <li><code class="danmu-name-tip-code">[off]chenyifaer</code> indicates that this rule is not active;</li>
     </ul><br/><p>If you don't know how to write regular expressions, you can ask ChatGPT ~</p>`,
     cpoiedTip: 'Copied',
-    twichTip: 'Twitch chat combine',
-    twitchLinkPlaceholder: 'Enter the Twitch room link',
-    rememberTwitch: 'Remember Twitch link',
-    twitchUrlMatchAlert: 'The URL match failed. Please enter a valid Twitch room address.'
+    popBoardConfirm: 'Close',
   },
   "中文": {
     nextLanguage: 'English',
@@ -123,11 +82,13 @@ const text = {
     height: '高度',
     settings: '设置',
     singleLine: '单列',
-    fullLine: '满行',
+    fullLine: '满行', // 弃用
+    twichTip: 'Twitch 弹幕融合',
+    twitchLinkPlaceholder: '请填入 Twitch 直播间链接',
+    twitchUrlMatchAlert: '网址匹配失败，请输入正确的 Twitch 房间地址',
     focusMode: `过滤：只显示以下规则过滤弹幕`,
     highlightMode: `高亮：根据以下规则高亮弹幕`,
     blockMode: `屏蔽：屏蔽符合以下规则的弹幕`,
-    popBoardConfirm: '关闭',
     nameTip: `<p>每行一条正则表达式。默认筛选用户名，
       <code>[chat]</code> 表示筛选弹幕，<code>[off]</code> 表示不生效。</p>
       <br/><p>常用筛选举例：</p>
@@ -137,17 +98,22 @@ const text = {
           <li><code class="danmu-name-tip-code">[off]陈一发儿</code> 表示这条规则不生效；</li>
       </ul><br/><p>如果不会写正则表达式可以问 ChatGPT ~</p>`,
     cpoiedTip: '已复制',
-    twichTip: 'Twitch 弹幕融合',
-    twitchLinkPlaceholder: '请填入 Twitch 直播间链接',
-    rememberTwitch: '记住Twitch链接',
-    twitchUrlMatchAlert: '网址匹配失败，请输入正确的 Twitch 房间地址'
+    popBoardConfirm: '关闭',
   }
 };
 
 const twitchLinkEmbed = (link) => {
-  let name = link.match(/twitch\.tv\/(?:popout\/|embed\/|)([^\/?#]+)/)[1];
-  return `https://www.twitch.tv/embed/${name}/chat?parent=www.youtube.com`;
+  if (link === '') return '';
+  try {
+    let name = link.match(/twitch\.tv\/(?:popout\/|embed\/|)([^\/?#]+)/)[1];
+    return `https://www.twitch.tv/embed/${name}/chat?parent=www.youtube.com`;
+  } catch {
+    alert(text[configs.language].twitchUrlMatchAlert);
+  };
 };
+// https://www.twitch.tv/popout/jinnytty/chat?popout=
+// https://www.twitch.tv/embed/jinnytty/chat?parent=iframetester.com
+// https://www.twitch.tv/jinnytty
 
 function deepCopy(a) {
   try {
@@ -357,18 +323,14 @@ if (document.URL.match(/https:\/\/www\.twitch\.tv\/embed\/[^\/]+\/chat\?parent=/
       };
     };
     traverseNodes(node);
-    if (allNodes.length == imgCount) return [];
-    // console.log(JSON.stringify(allNodes, null, 2));
-    if (allNodes[0][1].match(/\d{2}:\d{2}/)) allNodes.shift(); //.splice(0, 1);
-    let nameIndex = 0;
-    for (let i in allNodes) {
-      if (allNodes[i][1] === username) {
-        nameIndex = i;
-        allNodes[i] = ['username', username];
-        break;
-      };
+    if (!username) {
+      username = ignoreName;
+      ignoreName = '';
     };
-    if (nameIndex === 0) allNodes.unshift(['img', 'https://assets.twitch.tv/assets/favicon-32-e29e246c157142c94346.png']);
+    if (allNodes.length == imgCount) return [];
+    if (allNodes[0][1].match(/\d{2}:\d{2}/)) allNodes.shift(); //.splice(0, 1);
+    if (allNodes[0][0] !== 'img') allNodes.unshift(['img', 'https://assets.twitch.tv/assets/favicon-32-e29e246c157142c94346.png']);
+    // console.log(JSON.stringify(allNodes, null, 2));
     for (let i in allNodes) {
       if (allNodes[i][1] === ignoreName) {
         allNodes.splice(i, 1);
@@ -378,6 +340,12 @@ if (document.URL.match(/https:\/\/www\.twitch\.tv\/embed\/[^\/]+\/chat\?parent=/
     for (let i in allNodes) {
       if (allNodes[i][1] === ':') {
         allNodes[i] = ['colon', '：'];
+        break;
+      };
+    };
+    for (let i in allNodes) {
+      if (allNodes[i][1] === username) {
+        allNodes[i] = ['username', username];
         break;
       };
     };
@@ -766,12 +734,13 @@ const danmuHTML = `
       <button id="danmu-height-minus">-</button>
     </div>
   </div>
-  <div style="margin: 0.8em 0; background-color: #fafafa; padding: 0.5em 0.7em 0.5em 0.5em; border-radius: 0.5em; width: fit-content">
-    <span id="danmu-twitch-tip"></span>&nbsp;
-    <input type="text" id="danmu-twitch-link">&nbsp;
-    <label for="danmu-twitch-remember-check">
-      <input type="checkbox" id="danmu-twitch-remember-check">
+  <div style="margin: 0.8em 0; background-color: #fafafa; padding: 0.5em;
+    border-radius: 0.5em; width: fit-content">
+    <label for="danmu-twitch-active-check">
+      <input type="checkbox" id="danmu-twitch-active-check">
+      <span id="danmu-twitch-tip"></span>&nbsp;
     </label>
+    <input type="text" id="danmu-twitch-link">&nbsp;
   </div>
   <div id="danmu-name-container">
     <div id="danmu-name-tip" style="line-height: 1.58em;
@@ -821,14 +790,11 @@ function eleRefresh(danmuEle) {
   danmuEle.querySelector('#danmu-twitch-tip').innerText = text[configs.language].twichTip;
   danmuEle.querySelector('#danmu-twitch-link').placeholder = text[configs.language].twitchLinkPlaceholder;
   /* 文字更新的时间点：面板弹出 */
-  danmuEle.querySelector('#danmu-twitch-remember-check').checked = configs.isTwitchRemember;
-  danmuEle.querySelector('#danmu-twitch-remember-check').nextSibling.textContent = text[configs.language].rememberTwitch;
-  try {
+  danmuEle.querySelector('#danmu-twitch-active-check').checked = configs.isTwitchActive;
+  if (configs.isTwitchActive && !danmuEle.querySelector('iframe').src && configs.twitchLink) {
     let embedLink = twitchLinkEmbed(configs.twitchLink);
-    if (configs.isTwitchRemember && !danmuEle.querySelector('iframe').src && embedLink) {
-      danmuEle.querySelector('iframe').src = embedLink;
-    }
-  } catch { };
+    if (embedLink) danmuEle.querySelector('iframe').src = embedLink;
+  };
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-focus-names').nextSibling.textContent = `${text[configs.language].focusMode}`;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
@@ -908,7 +874,7 @@ function getDanmuEle() {
     if (danmuEle.querySelector('#danmu-pop-board').style.display == 'block') {
       settingSubmit();
     } else { // 标记：设置中的所有文字更新都要看看这里
-      if (configs.isTwitchRemember) danmuEle.querySelector('#danmu-twitch-link').value = configs.twitchLink;
+      danmuEle.querySelector('#danmu-twitch-link').value = configs.twitchLink;
       danmuEle.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
       danmuEle.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
       danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
@@ -1008,24 +974,18 @@ function getDanmuEle() {
 
   // ⬜️ twitch 链接
   danmuEle.querySelector('#danmu-twitch-link').addEventListener('change', event => {
-    if (configs.isTwitchRemember) {
-      setLocal({ twitchLink: event.target.value });
-    } else setLocal({ twitchLink: '' });
-    if (event.target.value) {
-      try {
-        danmuEle.querySelector('iframe').src = twitchLinkEmbed(event.target.value);
-      } catch (e) {
-        alert(text[configs.language].twitchUrlMatchAlert);
-        console.log(e);
-      };
+    setLocal({ twitchLink: event.target.value });
+    if (configs.isTwitchActive) {
+      let embedLink = twitchLinkEmbed(event.target.value);
+      if (embedLink !== undefined) danmuEle.querySelector('iframe').src = embedLink;
     };
   });
-  // https://www.twitch.tv/popout/jinnytty/chat?popout=
-  // https://www.twitch.tv/embed/jinnytty/chat?parent=iframetester.com
-  // https://www.twitch.tv/jinnytty
-  danmuEle.querySelector('#danmu-twitch-remember-check').addEventListener('change', e => {
-    setLocal({ isTwitchRemember: e.target.checked });
-    if (configs.isTwitchRemember) setLocal({ twitchLink: danmuEle.querySelector('#danmu-twitch-link').value });
+  danmuEle.querySelector('#danmu-twitch-active-check').addEventListener('change', e => {
+    setLocal({ isTwitchActive: e.target.checked });
+    if (configs.isTwitchActive) {
+      let embedLink = twitchLinkEmbed(configs.twitchLink);
+      if (embedLink !== undefined) danmuEle.querySelector('iframe').src = embedLink;
+    } else danmuEle.querySelector('iframe').src = '';
   });
 
   // ⬜️ 弹幕过滤设置开关、规则编辑
