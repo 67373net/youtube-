@@ -1,3 +1,43 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
@@ -5,8 +45,10 @@
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
+// @match        https://www.twitch.tv/embed/*/chat?parent=*
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        unsafeWindow
 // @license MIT
 // @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
 // @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
@@ -18,13 +60,13 @@
 // ✴️ 通用
 localStorage.removeItem('danmuParams'); // 清除旧版数据;
 
-const videoDoc = parent.document.querySelector('video').ownerDocument;
-let configs;
+let videoDoc = {}, configs;
+if (!document.URL.startsWith('https://www.twitch.tv')) videoDoc = parent.document.querySelector('video').ownerDocument;
 const defaultPosition =
   { top: 88, left: 58, maxHeight: 528, width: 528, fontSize: 15, gap: 3, transparent: 0.58 };
 const defaultConfigs = {
   ...defaultPosition, showMode: 0, singleLine: false, /* 这里暂时不用但不要删除：*/fullLine: false,
-  speed: 1, language: 'English',
+  speed: 1, language: 'English', twitchLink: '', isTwitchRemember: true,
   focusNames: [], highlightNames: [], blockNames: [],
   isFocusNames: false, isHighlightNames: false, isBlockNames: false,
 };
@@ -49,19 +91,22 @@ const text = {
     focusMode: `Filter: Only show chats according to following rules`,
     highlightMode: `Highlight: highlight chats according to following rules`,
     blockMode: `Block: Chats that matching following rules will be blocked`,
-    namesChanged: 'Names lists were edited, discarded?',
-    popBoardCancel: 'Cancel',
-    popBoardConfirm: 'Confirm',
+    popBoardConfirm: 'Close',
     nameTip: `<p>Each line is a regular expression. By default, it filters usernames.
     <code>[chat]</code> indicates filtering chat content,
     <code>[off]</code> indicates that the rule is inactive.</p>
     <br/><p>Common filter examples:</p><ul>
-      <li><code class="danmu-name-tip-code">chenyifaer</code>  filters usernames containing "chenyifaer";</li>
+      <li><code class="danmu-name-tip-code">chenyifaer</code> filters usernames containing "chenyifaer";</li>
       <li><code class="danmu-name-tip-code">^chenyifaer$</code>
         filters usernames exactly matching "chenyifaer";</li>
-      <li><code class="danmu-name-tip-code">[chat]lovefafa</code>  filters messages containing "lovefafa";</li>
+      <li><code class="danmu-name-tip-code">[chat]chenyifaer</code> filters messages containing "chenyifaer";</li>
+      <li><code class="danmu-name-tip-code">[off]chenyifaer</code> indicates that this rule is not active;</li>
     </ul><br/><p>If you don't know how to write regular expressions, you can ask ChatGPT ~</p>`,
     cpoiedTip: 'Copied',
+    twichTip: 'Twitch chat combine',
+    twitchLinkPlaceholder: 'Enter the Twitch room link',
+    rememberTwitch: 'Remember Twitch link',
+    twitchUrlMatchAlert: 'The URL match failed. Please enter a valid Twitch room address.'
   },
   "中文": {
     nextLanguage: 'English',
@@ -82,18 +127,26 @@ const text = {
     focusMode: `过滤：只显示以下规则过滤弹幕`,
     highlightMode: `高亮：根据以下规则高亮弹幕`,
     blockMode: `屏蔽：屏蔽符合以下规则的弹幕`,
-    namesChanged: '名字列表有修改，是否丢弃这些修改？',
-    popBoardCancel: '取消',
-    popBoardConfirm: '确定',
+    popBoardConfirm: '关闭',
     nameTip: `<p>每行一条正则表达式。默认筛选用户名，
       <code>[chat]</code> 表示筛选弹幕，<code>[off]</code> 表示不生效。</p>
       <br/><p>常用筛选举例：</p>
       <ul><li><code class="danmu-name-tip-code">陈一发儿</code> 筛选包含「陈一发儿」的用户名；</li>
           <li><code class="danmu-name-tip-code">^陈一发儿$</code> 筛选等于「陈一发儿」的用户名；</li>
-          <li><code class="danmu-name-tip-code">[chat]最爱陈一发儿</code> 筛选包含「最爱陈一发儿」的弹幕；</li>
+          <li><code class="danmu-name-tip-code">[chat]陈一发儿</code> 筛选包含「陈一发儿」的弹幕；</li>
+          <li><code class="danmu-name-tip-code">[off]陈一发儿</code> 表示这条规则不生效；</li>
       </ul><br/><p>如果不会写正则表达式可以问 ChatGPT ~</p>`,
     cpoiedTip: '已复制',
+    twichTip: 'Twitch 弹幕融合',
+    twitchLinkPlaceholder: '请填入 Twitch 直播间链接',
+    rememberTwitch: '记住Twitch链接',
+    twitchUrlMatchAlert: '网址匹配失败，请输入正确的 Twitch 房间地址'
   }
+};
+
+const twitchLinkEmbed = (link) => {
+  let name = link.match(/twitch\.tv\/(?:popout\/|embed\/|)([^\/?#]+)/)[1];
+  return `https://www.twitch.tv/embed/${name}/chat?parent=www.youtube.com`;
 };
 
 function deepCopy(a) {
@@ -123,6 +176,7 @@ function setLocal(params) {
 // ✴️ 主页面
 if (location.href.startsWith('https://www.youtube.com/watch?v=')
   || location.href.startsWith('https://www.youtube.com/live/')) {
+  let danmuEle;
   setStyle(); // 加 css 到 header
   danmuEleInit();
   function danmuEleInit() {
@@ -133,7 +187,7 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=')
       }
       if (document.querySelector('#chat-container iframe')) { // 检测到iframe，说明不是普通视频页面
         try {
-          let danmuEle = getDanmuEle();
+          danmuEle = getDanmuEle();
           danmuEle.danmuurl = videoDoc.URL;
           document.querySelector('body').appendChild(danmuEle)
         } catch (e) { console.log(e) };
@@ -174,9 +228,50 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=')
     observer.observe(document, { subtree: true, childList: true });
     observer.lastHref = document.location.href;
   })(window.history);
+
+  // 监听 postMessage
+  window.addEventListener('message', (event) => {
+    if (!danmuEle) return;
+    if (event.origin === 'https://www.twitch.tv') {
+      let username = '';
+      for (let i in event.data) {
+        if (event.data[i][0] === 'username') {
+          username = event.data[i][1];
+          break;
+        };
+      };
+      let content = '';
+      for (let i in event.data) {
+        if (event.data[i][0] === 'text') content += event.data[i][1];
+      };
+      let el = document.createElement('div');
+      el.className = 'danmu-item';
+      let matchChatRet = matchChat(username, content);
+      if (matchChatRet.isNoShow) return;
+      if (matchChatRet.isHighlight) el.className += ' danmu-highlight ';
+      for (let i in event.data) {
+        switch (event.data[i][0]) {
+          case 'img':
+            el.innerHTML += `<img src="${event.data[i][1]}">`
+            break;
+          case 'username':
+            el.innerHTML += `<span class="danmu-username-long">${event.data[i][1]}：</span>`;
+            el.innerHTML += `<span class="danmu-username-short">${event.data[i][1].substring(0, 1)}：</span>`;
+            break;
+          case 'text':
+            el.innerHTML += event.data[i][1];
+            break;
+          default:
+            break;
+        };
+      };
+      danmuEle.querySelector('#danmu-content').appendChild(el);
+      checkHeight(danmuEle);
+    };
+  });
 };
 
-// ✴️ 弹幕 iframe 页面
+// ✴️ YouTube chat iframe 页面
 if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   let danmuEle = parent.document.querySelector("#danmu-ele");
   if (document.readyState == "complete" || document.readyState == "loaded"
@@ -187,15 +282,17 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
   function main() {
     let config = { childList: true, subtree: true };
     let observer = new MutationObserver(mutations => {
-      if(mutations.length > 500) return; // 防止一次大量加载
+      // 【】 if (mutations.length > 500) return; // 防止一次大量加载
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
           if (!danmuEle) {
             danmuEle = parent.document.querySelector("#danmu-ele");
             if (!danmuEle) return;
           };
-          if (node.nodeType !== 1) return;
-          if (!node.tagName.toLowerCase().match(/yt-live-chat-(text|paid)-message-renderer/)) return;
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (!['yt-live-chat-text-message-renderer', 'yt-live-chat-paid-message-renderer', 'yt-live-chat-paid-sticker-renderer']
+            .includes(node.tagName.toLowerCase())) return;
+          if (mutations.length > 500 && node.getBoundingClientRect().right == 0) return;
           let el = digestYtChatDom(node);
           if (!el) return;
           danmuEle.querySelector('#danmu-content').appendChild(el);
@@ -209,6 +306,82 @@ if (location.href.startsWith('https://www.youtube.com/live_chat')) {
       clearInterval(timer);
       observer.observe(ytbChatEle, config);
     }, 888);
+  };
+};
+// 检查不存在的元素
+// getComputedStyle(a).display flex 无法判断
+// getComputedStyle(a).visibility visible 无法判断
+// a.getBoundingClientRect().width 911 无法判断
+// a.getBoundingClientRect().height 32 无法判断
+// a.getBoundingClientRect(). top right bottom left 0 正常是只有 left=0
+
+// ✴️ Twitch chat iframe 页面
+if (document.URL.match(/https:\/\/www\.twitch\.tv\/embed\/[^\/]+\/chat\?parent=/)) {
+  console.log('进入了 Twitch 的 chat iframe 页面：', document.URL);
+  let config = { childList: true, subtree: true };
+  let timer = setInterval(() => {
+    let watchEl = document.querySelector('.simplebar-content');
+    if (!watchEl) return;
+    clearInterval(timer);
+    observer.observe(watchEl, config);
+  }, 888);
+  let observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType !== 1) return;
+        if (!node.parentElement.parentElement.className == 'simplebar-content') return;
+        let allNodes = extractTextNodes(node);
+        if (allNodes.length === 0) return;
+        unsafeWindow.parent.postMessage(allNodes, 'https://www.youtube.com');
+      });
+    });
+  });
+
+  function extractTextNodes(node) {
+    let allNodes = [], username = '', ignoreName = '', imgCount = 0;
+    function traverseNodes(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        allNodes.push(['text', node.textContent.trim()]); // 仅保存非空文本
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.classList.contains('chat-author__display-name') && node.tagName.toLowerCase() === 'span') {
+          username = node.textContent.trim();
+        };
+        if (node.classList.contains('chat-author__intl-login') && node.tagName.toLowerCase() === 'span') {
+          ignoreName = node.textContent.trim();
+        };
+        if (node.tagName.toLowerCase() === 'img') {
+          allNodes.push(['img', node.src]);
+          imgCount++;
+        }
+        Array.from(node.childNodes).forEach(child => traverseNodes(child));
+      };
+    };
+    traverseNodes(node);
+    if (allNodes.length == imgCount) return [];
+    // console.log(JSON.stringify(allNodes, null, 2));
+    if (allNodes[0][1].match(/\d{2}:\d{2}/)) allNodes.shift(); //.splice(0, 1);
+    let nameIndex = 0;
+    for (let i in allNodes) {
+      if (allNodes[i][1] === username) {
+        nameIndex = i;
+        allNodes[i] = ['username', username];
+        break;
+      };
+    };
+    if (nameIndex === 0) allNodes.unshift(['img', 'https://assets.twitch.tv/assets/favicon-32-e29e246c157142c94346.png']);
+    for (let i in allNodes) {
+      if (allNodes[i][1] === ignoreName) {
+        allNodes.splice(i, 1);
+        break;
+      };
+    };
+    for (let i in allNodes) {
+      if (allNodes[i][1] === ':') {
+        allNodes[i] = ['colon', '：'];
+        break;
+      };
+    };
+    return allNodes;
   };
 };
 
@@ -245,7 +418,7 @@ function digestYtChatDom(dom) {
   const userPhotoElement = dom.querySelector("#author-photo #img");
   const userphoto = userPhotoElement ? userPhotoElement.outerHTML : '';
   const contentElement = dom.querySelector("#message");
-  const content = contentElement ? contentElement.innerHTML : '';
+  let content = contentElement ? contentElement.innerHTML : '';
   let usernameElement = dom.querySelector("#author-name");
   let username = usernameElement ? usernameElement.innerHTML : ''; // 这里参照原有代码，就不改了
   if (!username) return;
@@ -259,6 +432,12 @@ function digestYtChatDom(dom) {
   if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
     username = "(SC) " + username;
     color = getComputedStyle(dom).getPropertyValue("--yt-live-chat-paid-message-primary-color");
+    color = `style="color: ${color}"`;
+  };
+  if (dom.querySelector("#card") && dom.querySelector("#price-column")) {
+    username = "(SC) " + username;
+    color = getComputedStyle(dom.querySelector('#card')).backgroundColor;
+    content = dom.querySelector("#price-column").innerText;
     color = `style="color: ${color}"`;
   }
   el.innerHTML += `${userphoto}`;
@@ -274,9 +453,9 @@ function digestYtChatDom(dom) {
       el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
     }
     try {
-      let badge = dom.querySelector("yt-icon div").cloneNode(true);
-      let path = badge.querySelector('path');
-      if (path.getAttribute('d').startsWith('M9.64589146,7.05569719')) {
+      let badge = dom.querySelector("yt-icon div")?.cloneNode(true);
+      let path = badge?.querySelector('path');
+      if (path && path.getAttribute('d')?.startsWith('M9.64589146,7.05569719')) {
         switch (0) {
           case 0:
             badge.style.width = '1em';
@@ -289,7 +468,7 @@ function digestYtChatDom(dom) {
             break;
         }
       }
-    } catch (e) { console.log(e) };
+    } catch (e) { };
   }, 588)
   return el;
 };
@@ -337,7 +516,7 @@ function linesInfo(danmuEle, ifFirstLine, ifSecondLine) {
 function removeCoverdTops(danmuEle, force) {
   let l = linesInfo(danmuEle, true, false);
   try {
-    while (l?.distance < 0 || (force && l?.firstLine)) {
+    while (l?.distance < 0 || (force && l?.firstLine) || l?.diff > 3 * l?.baseHeight) {
       force = false;
       for (let i = 0; i < l.firstLine.length; i++) {
         l.firstLine[i].parentNode.removeChild(l.firstLine[i]);
@@ -442,24 +621,49 @@ function setStyle() {
     font-size: 12.8px;
   }
   #danmu-pop-board {
+    max-width:100vw;
+    overflow-x: auto;
     z-index: 418094;
-    display: none;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    display: none;
     background-color: #f0f0f0;
-    padding: 18px;
     border: 1px solid #ccc;
+  }
+  #danmu-pop-board-in {
+    min-width: 788px;
+    padding: 18px;
     color: black;
     font-size: 1.18em;
+  }
+  #danmu-pop-board .small-setting {
+    display: inline-block;
+    padding: 0.5em;
+    background-color: #fafafa;
+    border-radius: 0.5em;
+    white-space: nowrap;
+  }
+  #danmu-name-container {
+    margin:0.5em 0 1em 0;
+    display: flex;
+    gap: 1em;
+    height: 288px;
+    background-color: #fafafa;
+    padding: 1em 0.8em;
+    border-radius: 0.5em
   }
   #danmu-name-container div {
     width: 100%
   }
   #danmu-name-container textarea {
-    width: 92%;
-    height: 88%
+    width: 97%;
+    height: 86%
+  }
+  #danmu-name-container label {
+    display: inline-block;
+    height: 3em;
   }
   #danmu-pop-board ul {
     list-style-type: disc;
@@ -496,23 +700,23 @@ function setStyle() {
   .danmu-text {
     color: white;
   }`;
-  let showModeStyle = '';
-  switch (text[configs.language].modes[configs.showMode]) {
-    case 'Show all':
+  let showModeStyle = `#danmu-content {display: block}`;
+  switch (text['中文'].modes[configs.showMode]) {
+    case '全隐藏':
+      showModeStyle = `#danmu-content {display: none}`;
+      break;
     case '全显示':
-      showModeStyle = `
+      showModeStyle += `
         .danmu-username-long { display: inline !important; }
         .danmu-username-short { display: none !important; }`;
       break;
-    case 'Short name':
     case '短用户名':
-      showModeStyle = `
+      showModeStyle += `
         .danmu-username-long { display: none !important; }
         .danmu-username-short { display: inline !important; }`;
       break;
-    case 'No name':
     case '无用户名':
-      showModeStyle = `
+      showModeStyle += `
         .danmu-username-long { display: none !important; }
         .danmu-username-short { display: none !important; }`;
       break;
@@ -528,58 +732,78 @@ const danmuHTML = `
   <button id="danmu-language"></button>&nbsp;
 </div>
 <div id="danmu-content"></div>
-<div id="danmu-pop-board" style="min-width: 518px">
-  <span style="white-space: nowrap;">
-    <input type="checkbox" id="danmu-single-line">abc
-  </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap;">
-    <span id="danmu-fontsize"></span>
-    <button id="danmu-fontsize-add">+</button>
-    <button id="danmu-fontsize-minus">-</button>
-  </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap;">
-    <span id="danmu-speed"></span>
-    <button id="danmu-speed-add">+</button>
-    <button id="danmu-speed-minus">-</button>
-  </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap;">
-    <span id="danmu-gap"></span>
-    <button id="danmu-gap-add">+</button>
-    <button id="danmu-gap-minus">-</button>
-  </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap;">
-    <span id="danmu-transparent"></span>
-    <button id="danmu-transparent-add">+</button>
-    <button id="danmu-transparent-minus">-</button>
-  </span>&nbsp;&nbsp;
-  <span style="white-space: nowrap;">
-    <span id="danmu-height"></span>
-    <button id="danmu-height-add">+</button>
-    <button id="danmu-height-minus">-</button>
-  </span>&nbsp;&nbsp;
-  <div id="danmu-name-container" style="margin:1.8em 0; display: flex; height: 288px;">
-    <div id="danmu-name-tip" style="font-size: 1.18em; line-height: 1.4em;
-      margin-right: 0.8em; padding-top: 0.5em; overflow-y: auto; word-wrap: break-word; "></div>
+<div id="danmu-pop-board">
+<div id="danmu-pop-board-in">
+  <div style="display: flex; gap: 0.5em">
+    <div class="small-setting">
+      <label for="danmu-single-line">
+        <input type="checkbox" id="danmu-single-line">abc
+      </label>
+    </div>
+    <div class="small-setting">
+      <span id="danmu-fontsize"></span>
+      <button id="danmu-fontsize-add">+</button>
+      <button id="danmu-fontsize-minus">-</button>
+    </div>
+    <div class="small-setting">
+      <span id="danmu-speed"></span>
+      <button id="danmu-speed-add">+</button>
+      <button id="danmu-speed-minus">-</button>
+    </div>
+    <div class="small-setting">
+      <span id="danmu-gap"></span>
+      <button id="danmu-gap-add">+</button>
+      <button id="danmu-gap-minus">-</button>
+    </div>
+    <div class="small-setting">
+      <span id="danmu-transparent"></span>
+      <button id="danmu-transparent-add">+</button>
+      <button id="danmu-transparent-minus">-</button>
+    </div>
+    <div class="small-setting">
+      <span id="danmu-height"></span>
+      <button id="danmu-height-add">+</button>
+      <button id="danmu-height-minus">-</button>
+    </div>
+  </div>
+  <div style="margin: 0.8em 0; background-color: #fafafa; padding: 0.5em 0.7em 0.5em 0.5em; border-radius: 0.5em; width: fit-content">
+    <span id="danmu-twitch-tip"></span>&nbsp;
+    <input type="text" id="danmu-twitch-link">&nbsp;
+    <label for="danmu-twitch-remember-check">
+      <input type="checkbox" id="danmu-twitch-remember-check">
+    </label>
+  </div>
+  <div id="danmu-name-container">
+    <div id="danmu-name-tip" style="line-height: 1.58em;
+      overflow-y: auto; word-wrap: break-word; "></div>
     <div>
-      <input type="checkbox" id="danmu-is-focus-names">
+      <label for="danmu-is-focus-names">
+        <input type="checkbox" id="danmu-is-focus-names">
+      </label>
       <textarea id="danmu-focus-names"></textarea>
     </div>
     <div>
-      <input type="checkbox" id="danmu-is-highlight-names">
+      <label for="danmu-is-highlight-names">
+        <input type="checkbox" id="danmu-is-highlight-names">
+      </label>
       <textarea id="danmu-highlight-names"></textarea>
     </div>
     <div>
-      <input type="checkbox" id="danmu-is-block-names">
+      <label for="danmu-is-block-names">
+        <input type="checkbox" id="danmu-is-block-names">
+      </label>
       <textarea id="danmu-block-names"></textarea>
     </div>
   </div>
   <div style="display: inline-block; text-align: center;width: 100%;">
-    <button id="danmu-pop-board-cancel" style"display: inline-block; margin: 0 5px"></button>
     <button id="danmu-pop-board-submit" style"display: inline-block; margin: 0 5px"></button>
   </div>
-</div>`;
+</div>
+</div>
+<iframe style="display: none;"></iframe>
+`;
 
-function eleRefresh(danmuEle, ifTextRefresh) {
+function eleRefresh(danmuEle) {
   danmuEle = danmuEle || videoDoc.querySelector('#danmu-ele');
   if (!danmuEle) return;
   danmuEle.querySelector('#danmu-settings').innerText = text[configs.language].settings;
@@ -594,6 +818,17 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-transparent').innerText =
     `${text[configs.language].transparency} ${configs.transparent.toFixed(2)}`;
   danmuEle.querySelector('#danmu-height').innerText = `${text[configs.language].height} ${configs.maxHeight}`;
+  danmuEle.querySelector('#danmu-twitch-tip').innerText = text[configs.language].twichTip;
+  danmuEle.querySelector('#danmu-twitch-link').placeholder = text[configs.language].twitchLinkPlaceholder;
+  /* 文字更新的时间点：面板弹出 */
+  danmuEle.querySelector('#danmu-twitch-remember-check').checked = configs.isTwitchRemember;
+  danmuEle.querySelector('#danmu-twitch-remember-check').nextSibling.textContent = text[configs.language].rememberTwitch;
+  try {
+    let embedLink = twitchLinkEmbed(configs.twitchLink);
+    if (configs.isTwitchRemember && !danmuEle.querySelector('iframe').src && embedLink) {
+      danmuEle.querySelector('iframe').src = embedLink;
+    }
+  } catch { };
   danmuEle.querySelector('#danmu-is-focus-names').checked = configs.isFocusNames;
   danmuEle.querySelector('#danmu-is-focus-names').nextSibling.textContent = `${text[configs.language].focusMode}`;
   danmuEle.querySelector('#danmu-is-highlight-names').checked = configs.isHighlightNames;
@@ -602,20 +837,8 @@ function eleRefresh(danmuEle, ifTextRefresh) {
   danmuEle.querySelector('#danmu-is-block-names').checked = configs.isBlockNames;
   danmuEle.querySelector('#danmu-is-block-names').nextSibling.textContent = `${text[configs.language].blockMode}`;
   danmuEle.querySelector('#danmu-name-tip').innerHTML = `${text[configs.language].nameTip}`;
-  danmuEle.querySelector('#danmu-pop-board-cancel').innerText = `${text[configs.language].popBoardCancel}`;
   danmuEle.querySelector('#danmu-pop-board-submit').innerText = `${text[configs.language].popBoardConfirm}`;
-  if ('全隐藏' === (text["中文"].modes[configs.showMode])) {
-    danmuEle.querySelector('#danmu-content').style.display = 'none';
-  } else {
-    danmuEle.querySelector('#danmu-content').style.display = 'block';
-    checkHeight(danmuEle);
-  };
   setStyle();
-  if (ifTextRefresh) {
-    danmuEle.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
-    danmuEle.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
-    danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
-  }
   let codeEles = danmuEle.querySelectorAll('code');
   codeEles.forEach(el => {
     el.addEventListener('click', e => {
@@ -676,23 +899,32 @@ function getDanmuEle() {
     for (let i in menuFuncs) menuIndex[i] = GM_registerMenuCommand(text[configs.language][i], menuFuncs[i]);
   };
 
-  // ⬜️ 设置按钮
+  // ⬜️⬜️ 阻断点击事件穿透 #屏蔽
+  danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
+  danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
+
+  // ⬜️ 设置按钮 面板弹出
   function settingsPopout() {
     if (danmuEle.querySelector('#danmu-pop-board').style.display == 'block') {
-      settingCancel();
-    } else {
-      eleRefresh(danmuEle, true);
+      settingSubmit();
+    } else { // 标记：设置中的所有文字更新都要看看这里
+      if (configs.isTwitchRemember) danmuEle.querySelector('#danmu-twitch-link').value = configs.twitchLink;
+      danmuEle.querySelector('#danmu-focus-names').value = configs.focusNames.join('\n');
+      danmuEle.querySelector('#danmu-highlight-names').value = configs.highlightNames.join('\n');
+      danmuEle.querySelector('#danmu-block-names').value = configs.blockNames.join('\n');
+      eleRefresh(danmuEle);
       danmuEle.querySelector('#danmu-pop-board').style.display = 'block';
-      videoDoc.querySelector('#masthead-container').style.display = 'none';
+      videoDoc.querySelector('#masthead-container').style.display = 'none'; // 避免 YouTube 遮挡
     };
   }
   danmuEle.querySelector('#danmu-settings').addEventListener('click', settingsPopout);
 
-  // ⬜️ 显示模式切换
+  // ⬜️ 显示模式切换 全显示 长短名字 全隐藏
   danmuEle.querySelector('#danmu-show-mode').addEventListener('click', () => {
     setLocal({ showMode: (configs.showMode + 1) % text[configs.language].modes.length });
     danmuEle.querySelector('#danmu-show-mode').innerText = text[configs.language].modes[configs.showMode];
-    eleRefresh(danmuEle);
+    checkHeight(danmuEle);
+    setStyle();
   });
 
   // ⬜️ 语言切换
@@ -702,7 +934,7 @@ function getDanmuEle() {
     menuRefresh();
   });
 
-  // ⬜️ 行显示模式
+  // ⬜️ 行显示模式 单列多列
   danmuEle.querySelector('#danmu-single-line').addEventListener('change', event => {
     setLocal({ singleLine: event.target.checked });
     setStyle();
@@ -712,7 +944,8 @@ function getDanmuEle() {
   // ⬜️ 控制功能 - 字号大小
   function fontSizeChange(change) {
     setLocal({ fontSize: Math.max(0, configs.fontSize + change) });
-    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-fontsize').innerText = `${text[configs.language].fontSize} ${configs.fontSize}`;
+    setStyle();
   };
   danmuEle.querySelector('#danmu-fontsize-add').addEventListener('click', e => fontSizeChange(1));
   danmuEle.querySelector('#danmu-fontsize-minus').addEventListener('click', e => fontSizeChange(-1));
@@ -720,7 +953,8 @@ function getDanmuEle() {
   // ⬜️ 控制功能 - 速度
   function speedChange(change) {
     setLocal({ speed: Math.max(0, Number((configs.speed + change).toFixed(2))) });
-    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-speed').innerText = `${text[configs.language].speed} ${configs.speed.toFixed(2)}`;
+    setStyle();
   };
   danmuEle.querySelector('#danmu-speed-add').addEventListener('click', e => speedChange(0.05));
   danmuEle.querySelector('#danmu-speed-minus').addEventListener('click', e => speedChange(-0.05));
@@ -728,7 +962,8 @@ function getDanmuEle() {
   // ⬜️ 控制功能 - 间距大小
   function gapChange(change) {
     setLocal({ gap: configs.gap + change });
-    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-gap').innerText = `${text[configs.language].gap} ${configs.gap}`;
+    setStyle();
   };
   danmuEle.querySelector('#danmu-gap-add').addEventListener('click', e => gapChange(1));
   danmuEle.querySelector('#danmu-gap-minus').addEventListener('click', e => gapChange(-1));
@@ -740,7 +975,9 @@ function getDanmuEle() {
     change = Math.max(0, change);
     change = Math.min(1, change);
     setLocal({ transparent: change });
-    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-transparent').innerText =
+      `${text[configs.language].transparency} ${configs.transparent.toFixed(2)}`;
+    setStyle();
   };
   function transparentMouseDown(change) {
     transparentChange(change);
@@ -763,65 +1000,62 @@ function getDanmuEle() {
     setLocal({ maxHeight: Math.max(0, configs.maxHeight + num) });
     danmuContentEl.style.height = `${configs.maxHeight - 1}px`;
     danmuContentEl.style.maxHeight = `${configs.maxHeight}px`;
-    eleRefresh(danmuEle);
+    danmuEle.querySelector('#danmu-height').innerText = `${text[configs.language].height} ${configs.maxHeight}`;
+    setStyle();
   }
   danmuEle.querySelector('#danmu-height-add').addEventListener('click', e => setHeight(18));
   danmuEle.querySelector('#danmu-height-minus').addEventListener('click', e => setHeight(-18));
 
-  // ⬜️ 面板关闭
-  function settingSubmit() {
-    setLocal({
-      focusNames: danmuEle.querySelector('#danmu-focus-names')
-        .value.split('\n').filter(item => item.trim()),
-      highlightNames: danmuEle.querySelector('#danmu-highlight-names')
-        .value.split('\n').filter(item => item.trim()),
-      blockNames: danmuEle.querySelector('#danmu-block-names')
-        .value.split('\n').filter(item => item.trim())
-    });
-    danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-    videoDoc.querySelector('#masthead-container').style.display = 'block';
-  };
-  function settingCancel() {
-    function different(a, b) {
-      a = danmuEle.querySelector(a).value.split('\n').filter(item => item.trim())
-      a = JSON.stringify(a);
-      if (a != JSON.stringify(b)) return true;
-    }
-    if (different('#danmu-focus-names', configs.focusNames)
-      || different('#danmu-highlight-names', configs.highlightNames)
-      || different('#danmu-block-names', configs.blockNames)) {
-      if (confirm(text[configs.language].namesChanged)) {
-        danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-        videoDoc.querySelector('#masthead-container').style.display = 'block';
-        eleRefresh(danmuEle);
-      } else return;
-    } else {
-      danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
-      videoDoc.querySelector('#masthead-container').style.display = 'block';
-    }
-  };
-  danmuEle.querySelector('#danmu-pop-board-cancel').addEventListener('click', () => {
-    settingCancel()
+  // ⬜️ twitch 链接
+  danmuEle.querySelector('#danmu-twitch-link').addEventListener('change', event => {
+    if (configs.isTwitchRemember) {
+      setLocal({ twitchLink: event.target.value });
+    } else setLocal({ twitchLink: '' });
+    if (event.target.value) {
+      try {
+        danmuEle.querySelector('iframe').src = twitchLinkEmbed(event.target.value);
+      } catch (e) {
+        alert(text[configs.language].twitchUrlMatchAlert);
+        console.log(e);
+      };
+    };
   });
-  danmuEle.querySelector('#danmu-pop-board-submit').addEventListener('click', e => settingSubmit());
+  // https://www.twitch.tv/popout/jinnytty/chat?popout=
+  // https://www.twitch.tv/embed/jinnytty/chat?parent=iframetester.com
+  // https://www.twitch.tv/jinnytty
+  danmuEle.querySelector('#danmu-twitch-remember-check').addEventListener('change', e => {
+    setLocal({ isTwitchRemember: e.target.checked });
+    if (configs.isTwitchRemember) setLocal({ twitchLink: danmuEle.querySelector('#danmu-twitch-link').value });
+  });
 
-  // ⬜️ 弹幕过滤设置开关
+  // ⬜️ 弹幕过滤设置开关、规则编辑
   danmuEle.querySelector('#danmu-is-focus-names').addEventListener('change', event => {
     setLocal({ isFocusNames: event.target.checked });
-    eleRefresh(danmuEle);
   });
   danmuEle.querySelector('#danmu-is-highlight-names').addEventListener('change', event => {
     setLocal({ isHighlightNames: event.target.checked });
-    eleRefresh(danmuEle);
   });
   danmuEle.querySelector('#danmu-is-block-names').addEventListener('change', event => {
     setLocal({ isBlockNames: event.target.checked });
-    eleRefresh(danmuEle);
   });
+  function namesSave(toChange) {
+    toChange = toChange ? [].concat[toChange] : ['focus', 'highlight', 'block'];
+    toChange.forEach(item => {
+      setLocal({
+        [`${item}Names`]: danmuEle.querySelector(`#danmu-${item}-names`).value.split('\n').filter(item => item.trim())
+      });
+    })
+  }
+  danmuEle.querySelector('#danmu-focus-names').addEventListener('change', e => namesSave('focus'));
+  danmuEle.querySelector('#danmu-highlight-names').addEventListener('change', e => namesSave('highlight'));
+  danmuEle.querySelector('#danmu-block-names').addEventListener('change', e => namesSave('block'));
 
-  // ⬜️⬜️ 阻断点击事件穿透 #屏蔽
-  danmuEle.querySelector('#danmu-ctrl').addEventListener('click', event => event.stopPropagation());
-  danmuEle.querySelector('#danmu-ctrl').addEventListener('dblclick', event => event.stopPropagation());
+  // ⬜️ 面板关闭
+  function settingSubmit() {
+    danmuEle.querySelector('#danmu-pop-board').style.display = 'none';
+    videoDoc.querySelector('#masthead-container').style.display = 'block';
+  };
+  danmuEle.querySelector('#danmu-pop-board-submit').addEventListener('click', e => settingSubmit());
 
   // ⬜️ 移入移出显示
   let isMouseIn;
@@ -954,6 +1188,17 @@ function getDanmuEle() {
   return danmuEle;
 };
 
+// ⬜️ 蜂鸣器，调试用
+function beep() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioCtx.createOscillator();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4音
+  oscillator.connect(audioCtx.destination);
+  oscillator.start();
+  setTimeout(() => { oscillator.stop() }, 1000);
+}
+
 // console. log('YouTube 悬浮弹幕');
 // 边缘测试：
 //   iframe重新加载时，会不会清空
@@ -964,73 +1209,3 @@ function getDanmuEle() {
 //   弹幕慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
 //   弹幕快：https://www.youtube.com/live/m8nButUrSYk?si=6ezF7VgSTtEKeoQl&t=6452
 //   直播中：https://www.youtube.com/watch?v=jfKfPfyJRdk
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ==UserScript==
-// @name         Youtube smooth floating chat 丝滑悬浮弹幕
-// @namespace    67373tools
-// @version      0.1.22
-// @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
-// @author       XiaoMIHongZHaJi
-// @match        https://www.youtube.com/*
-// @match        https://www.twitch.tv/*
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.user.js
-// @updateURL https://update.greasyfork.org/scripts/500209/Youtube%20%E6%82%AC%E6%B5%AE%E5%BC%B9%E5%B9%95.meta.js
-// ==/UserScript==
-
-// ❤️ 广告：欢迎收看陈一发儿直播：https://67373.net
-// 如果有 bug，在上面网站也可以找到反馈联系方式
-
-if (location.href.startsWith('https://www.youtube.com/watch?v=')
-  || location.href.startsWith('https://www.youtube.com/live/')) {
-  let twitchIframe = document.createElement('iframe');
-  twitchIframe.src = 'https://www.twitch.tv/embed/jinnytty/chat?parent=www.youtube.com';
-  twitchIframe.style.display = 'none';
-  document.querySelector('body').appendChild(twitchIframe);
-
-  function sendMessage() {
-    console.log('准备发消息');
-    twitchIframe.contentWindow.postMessage('Hello from parent 2222', 'https://www.twitch.tv');
-  }
-  window.addEventListener('message', function(event) {
-//     if (event.origin !== 'https://www.twitch.tv') {
-//       console.log('Message from iframe: 11fdafda1111', event.data);
-//       return;
-//     }
-    console.log('Message from iframe: 111111', event.data, event.origin);
-  });
-  setTimeout(sendMessage,3000)
-}
-
-if (location.href.startsWith('https://www.twitch.tv/embed/')) {
-  console.log('进入twitch')
-  window.addEventListener('message', event => {
-//     if (event.origin !== 'https://www.google.com'){
-//         console.log('Message from parefdsfadnt: 456 ', event.data);
-//         return;
-//     }
-    console.log('Message from parent: 456 ', event.data, event.origin);
-    event.source.postMessage('Hello from iframe 123', event.origin);
-  });
-}
-
