@@ -1164,7 +1164,7 @@ function beep() {
 //   iframe重新加载时，会不会清空
 //   从直播跳到视频时，会不会清空
 // greasyfork: https://greasyfork.org/en/scripts/500209-
-// 代码 https://github.dev/67373net/youtube-float-danmu/blob/main/index.js
+// 代码 https://github.com/67373net/youtube-float-danmu/blob/main/index.js
 // 测试地址
 //   弹幕慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
 //   弹幕快：https://www.youtube.com/live/m8nButUrSYk?si=6ezF7VgSTtEKeoQl&t=6452
