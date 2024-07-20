@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.24
+// @version      0.1.25
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -999,7 +999,7 @@ function getDanmuEle() {
     setLocal({ isBlockNames: event.target.checked });
   });
   function namesSave(toChange) {
-    toChange = toChange ? [].concat[toChange] : ['focus', 'highlight', 'block'];
+    toChange = toChange ? [].concat(toChange) : ['focus', 'highlight', 'block'];
     toChange.forEach(item => {
       setLocal({
         [`${item}Names`]: danmuEle.querySelector(`#danmu-${item}-names`).value.split('\n').filter(item => item.trim())
