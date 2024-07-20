@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.25
+// @version      0.1.26
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -345,6 +345,7 @@ if (document.URL.match(/https:\/\/www\.twitch\.tv\/embed\/[^\/]+\/chat\?parent=/
     };
     for (let i in allNodes) {
       if (allNodes[i][1] === username) {
+        if (username.length >= 21) username = username.substring(0, 18) + '...';
         allNodes[i] = ['username', username];
         break;
       };
@@ -397,8 +398,14 @@ function digestYtChatDom(dom) {
   if (matchChatRet.isNoShow) return;
   if (matchChatRet.isHighlight) el.className += ' danmu-highlight ';
   let color = '';
+  let shortUsername = username.substring(0, 1);
+  if (username.length >= 21) username = username.substring(0, 18) + '...';
   if (dom.querySelector("#card") && dom.querySelector("#purchase-amount")) {
     username = "(SC) " + username;
+    try {
+      let price = dom.querySelector("#purchase-amount").innerText;
+      content = `${price} ${content}`;
+    } catch { };
     color = getComputedStyle(dom).getPropertyValue("--yt-live-chat-paid-message-primary-color");
     color = `style="color: ${color}"`;
   };
@@ -413,7 +420,7 @@ function digestYtChatDom(dom) {
   el.innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
     + `</span>${separator}</span>`;
   el.innerHTML +=
-    `<span class="danmu-username-short" ${color}>${username.substring(0, 1)}<span class="danmu-badge">`
+    `<span class="danmu-username-short" ${color}>${shortUsername}<span class="danmu-badge">`
     + `</span>${separator}</span>`;
   el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
   setTimeout(() => {
@@ -421,15 +428,19 @@ function digestYtChatDom(dom) {
       el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
     }
     try {
-      let badge = dom.querySelector("yt-icon div")?.cloneNode(true);
-      let path = badge?.querySelector('path');
+      let badge = [dom.querySelector("yt-icon div")?.cloneNode(true)];
+      let path = badge[0]?.querySelector('path');
       if (path && path.getAttribute('d')?.startsWith('M9.64589146,7.05569719')) {
         switch (0) {
           case 0:
-            badge.style.width = '1em';
-            badge.style.display = 'inline-block';
-            badge.style.color = 'lightyellow';
-            el.querySelector('.danmu-badge').appendChild(badge);
+            badge[0].style.width = '1em';
+            badge[0].style.display = 'inline-block';
+            badge[0].style.color = 'lightyellow';
+            let badeges = el.querySelectorAll('.danmu-badge');
+            for (let i = 0; i < badeges.length; i++) {
+              badeges[i].appendChild(badge[i]);
+              badge[i + 1] = badge[0].cloneNode(true);
+            };
             break;
           case 1:
             el.querySelector('.danmu-badge').innerText = '🔧';
@@ -515,7 +526,14 @@ const timesVar = 1 / 28;
 function checkHeight(danmuEle) {
   if (videoDoc.danmuObj.isCheckingHeight) return;
   videoDoc.danmuObj.isCheckingHeight = true;
-
+  if (getComputedStyle(danmuEle.querySelector('#danmu-content')).display == 'none') {
+    let items = danmuEle.querySelectorAll('.danmu-item');
+    for (let i = 0; i < items.length - 288; i++) {
+      danmuEle.removeChild(items[i]);
+    }
+    videoDoc.danmuObj.isCheckingHeight = false;
+    return;
+  };
   try {
     // 检查是否有完全覆盖的弹幕并删除
     let l = removeCoverdTops(danmuEle);
@@ -659,7 +677,7 @@ function setStyle() {
   }
   .danmu-item img {
     border-radius: 888px;
-    width: ${configs.fontSize * 1.18}px;
+    width: auto;
     height: ${configs.fontSize * 1.18}px;
     margin-right: ${configs.fontSize / 3}px;
     display: inline;
@@ -668,10 +686,10 @@ function setStyle() {
   .danmu-text {
     color: white;
   }`;
-  let showModeStyle = `#danmu-content {display: block}`;
+  let showModeStyle = `#danmu-content { display: block; }`;
   switch (text['中文'].modes[configs.showMode]) {
     case '全隐藏':
-      showModeStyle = `#danmu-content {display: none}`;
+      showModeStyle = `#danmu-content { display: none; }`;
       break;
     case '全显示':
       showModeStyle += `
@@ -681,7 +699,10 @@ function setStyle() {
     case '短用户名':
       showModeStyle += `
         .danmu-username-long { display: none !important; }
-        .danmu-username-short { display: inline !important; }`;
+        .danmu-username-short {
+          display: inline-block !important;
+          min-width: 2em;
+        }`;
       break;
     case '无用户名':
       showModeStyle += `
@@ -824,14 +845,19 @@ function getDanmuEle() {
 
   // ⬜️ 油猴脚本按钮初始化
   let menuIndex = {};
+  function resetEl(danmuEle) {
+    eleRefresh(danmuEle);
+    danmuEle.style.top = '';
+    danmuEle.style.left = '';
+    danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
+    danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
+    danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+  }
   const menuFuncs = {
     menuSetting: settingsPopout,
     menuResetPosition: () => {
       setLocal(defaultPosition);
-      eleRefresh(danmuEle);
-      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-      danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-      danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+      resetEl(danmuEle);
     },
     menuResetExceptNames: () => {
       let oldConfigs = deepCopy(configs);
@@ -842,20 +868,14 @@ function getDanmuEle() {
         highlightNames: oldConfigs.highlightNames,
         blockNames: oldConfigs.blockNames
       });
-      eleRefresh(danmuEle);
-      danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-      danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-      danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+      resetEl(danmuEle);
     },
     menuResetAll: () => {
       if (confirm(text[configs.language].menuResetAllConfirm)) {
         setLocal(defaultConfigs);
         getLocal();
         setLocal();
-        eleRefresh(danmuEle);
-        danmuEle.querySelector('#danmu-ctrl').style.visibility = 'visible';
-        danmuEle.querySelector('#danmu-content').style.height = defaultPosition.maxHeight + 'px';
-        danmuEle.querySelector('#danmu-content').style.maxHeight = defaultPosition.maxHeight + 'px';
+        resetEl(danmuEle);
       } else return;
     },
   };
@@ -1105,6 +1125,7 @@ function getDanmuEle() {
         left: danmuEle.offsetLeft
       });
       eleRefresh(danmuEle);
+      checkHeight(danmuEle);
       doc.removeEventListener('mousemove', doDrag);
       doc.removeEventListener('mouseup', stopDrag);
     };
