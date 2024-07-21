@@ -215,17 +215,23 @@ if (location.href.startsWith('https://www.youtube.com/watch?v=')
       let matchChatRet = matchChat(username, content);
       if (matchChatRet.isNoShow) return;
       if (matchChatRet.isHighlight) el.className += ' danmu-highlight ';
+      el.innerHTML += `<table><tbody><tr><td class="first-td"></td><td class="second-td"></td></tr></tbody></table>`
       for (let i in event.data) {
         switch (event.data[i][0]) {
-          case 'img':
-            el.innerHTML += `<img src="${event.data[i][1]}">`
+          case 'img': {
+            if (i == 0) {
+              el.querySelector('.first-td').innerHTML += `<img src="${event.data[i][1]}">`
+            } else {
+              el.querySelector('.second-td').innerHTML += `<img src="${event.data[i][1]}">`
+            }
             break;
+          }
           case 'username':
-            el.innerHTML += `<span class="danmu-username-long">${event.data[i][1]}：</span>`;
-            el.innerHTML += `<span class="danmu-username-short">${event.data[i][1].substring(0, 1)}：</span>`;
+            el.querySelector('.second-td').innerHTML += `<span class="danmu-username-long">${event.data[i][1]}：</span>`;
+            el.querySelector('.second-td').innerHTML += `<span class="danmu-username-short">${event.data[i][1].substring(0, 1)}：</span>`;
             break;
           case 'text':
-            el.innerHTML += event.data[i][1];
+            el.querySelector('.second-td').innerHTML += event.data[i][1];
             break;
           default:
             break;
@@ -415,14 +421,15 @@ function digestYtChatDom(dom) {
     content = dom.querySelector("#price-column").innerText;
     color = `style="color: ${color}"`;
   }
-  el.innerHTML += `${userphoto}`;
+  el.innerHTML += `<table><tbody><tr><td class="first-td"></td><td class="second-td"></td></tr></tbody></table>`;
+  el.querySelector('.first-td').innerHTML += `${userphoto}`;
   let separator = content ? '：' : '';
-  el.innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
+  el.querySelector('.second-td').innerHTML += `<span class="danmu-username-long" ${color}>${username}<span class="danmu-badge">`
     + `</span>${separator}</span>`;
-  el.innerHTML +=
+  el.querySelector('.second-td').innerHTML +=
     `<span class="danmu-username-short" ${color}>${shortUsername}<span class="danmu-badge">`
     + `</span>${separator}</span>`;
-  el.innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
+  el.querySelector('.second-td').innerHTML += `<span class="danmu-text" ${color}>${content}</span>`;
   setTimeout(() => {
     if (el.querySelector('img')?.src?.startsWith('data')) {
       el.querySelector('img').src = dom.querySelector("#author-photo #img").src;
@@ -432,7 +439,7 @@ function digestYtChatDom(dom) {
       let path = badge[0]?.querySelector('path');
       if (path && path.getAttribute('d')?.startsWith('M9.64589146,7.05569719')) {
         switch (0) {
-          case 0:
+          case 0: {
             badge[0].style.width = '1em';
             badge[0].style.display = 'inline-block';
             badge[0].style.color = 'lightyellow';
@@ -442,6 +449,7 @@ function digestYtChatDom(dom) {
               badge[i + 1] = badge[0].cloneNode(true);
             };
             break;
+          }
           case 1:
             el.querySelector('.danmu-badge').innerText = '🔧';
             break;
@@ -682,6 +690,9 @@ function setStyle() {
     margin-right: ${configs.fontSize / 3}px;
     display: inline;
     vertical-align: middle;
+  }
+  .danmu-item .first-td {
+    vertical-align: super;
   }
   .danmu-text {
     color: white;
