@@ -695,6 +695,9 @@ function setStyle() {
     vertical-align: super;
     width: 1.28em;
   }
+  .danmu-item a {
+    color: lightblue;
+  }
   .danmu-text {
     color: white;
   }`;
@@ -1214,3 +1217,4 @@ function beep() {
 //   弹幕慢：https://www.youtube.com/live/5FUWAwWJrkQ?t=3341s
 //   弹幕快：https://www.youtube.com/live/m8nButUrSYk?si=6ezF7VgSTtEKeoQl&t=6452
 //   直播中：https://www.youtube.com/watch?v=jfKfPfyJRdk
+//   带链接：https://www.youtube.com/live/hs6WyhTWrRE?si=lxRnec0kyNO0EHFt&t=2097
