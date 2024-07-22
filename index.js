@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.29
+// @version      0.1.30
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -1077,17 +1077,17 @@ function getDanmuEle() {
   let mouseStatus = { width: 0, height: 0, left: 0 };
   const cursorStyles = ['n-resize', 'ne-resize', 'e-resize', 'se-resize',
     's-resize', 'sw-resize', 'w-resize', 'nw-resize'];
-  function changCursor() {
-    let index = cursorStyles.indexOf(danmuContentEl.style.cursor);
-    if (index == -1) {
-      danmuContentEl.style.cursor = cursorStyles[0];
-    } else {
-      danmuContentEl.style.cursor = cursorStyles[(index + 1) % cursorStyles.length];
-    }
-  };
+  let cursorIndex = { index: 0, time: Date.now() };
+  function changeCursor() {
+    let time = Date.now();
+    if (time - cursorIndex.time > 88) {
+      cursorIndex.time = time;
+      danmuContentEl.style.cursor = cursorStyles[(++cursorIndex.index) % cursorStyles.length];
+    } else danmuContentEl.style.cursor = cursorStyles[cursorIndex.index % cursorStyles.length];
+  }
   danmuContentEl.addEventListener('mousemove', function (event) {
     const rect = danmuContentEl.getBoundingClientRect();
-    const offset = 10;
+    const offset = 18;
     if (event.clientX <= rect.right && event.clientX >= rect.right - offset &&
       event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       // danmuContentEl.style.cursor = 'nwse-resize'; // 右下
@@ -1100,13 +1100,13 @@ function getDanmuEle() {
       // danmuContentEl.style.cursor = 'ew-resize'; // 左
       // mouseStatus = { width: -1, height: 0, left: 1 };
       // danmuContentEl.style.cursor = 'all-scroll';
-      changCursor();
+      changeCursor();
       mouseStatus = { width: -1, height: 1, left: 1 };
     } else if (event.clientX <= rect.right && event.clientX >= rect.right - offset) {
       // danmuContentEl.style.cursor = 'ew-resize'; // 右
       // mouseStatus = { width: 1, height: 0, left: 0 };
       // danmuContentEl.style.cursor = 'all-scroll';
-      changCursor();
+      changeCursor();
       mouseStatus = { width: 1, height: 1, left: 0 };
     } else if (event.clientY <= rect.bottom && event.clientY >= rect.bottom - offset) {
       // danmuContentEl.style.cursor = 'ns-resize'; // 下
