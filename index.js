@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Youtube smooth floating chat 丝滑悬浮弹幕
 // @namespace    67373tools
-// @version      0.1.30
+// @version      0.1.31
 // @description  Youtube floating chat 悬浮弹幕，丝滑滚动 # Danmaku barrage bullet curtain
 // @author       XiaoMIHongZHaJi
 // @match        https://www.youtube.com/*
@@ -667,7 +667,7 @@ function setStyle() {
     color: Brown;
   }
   #danmu-content {
-    font-size: ${configs.fontSize}px;
+    font-size: 0px;
     max-height: ${configs.maxHeight}px;
     height: auto;
   }
@@ -675,9 +675,10 @@ function setStyle() {
     color: rgb(200,200,200);
   }
   .danmu-item {
+    font-size: ${configs.fontSize}px;
     width: fit-content;
     background-color: rgba(0, 0, 0, ${configs.transparent});
-    border-radius: ${configs.gap / 2.8 + 0.8}px;
+    border-radius: ${configs.gap / 1.8 + 1.8}px;
     padding: ${styleCalc().danmuItemPaddingTop}px ${configs.gap * 1.5}px;
     margin: ${styleCalc().danmuItemMargin}px;
     display: ${danmuItemDisplay};
@@ -694,6 +695,7 @@ function setStyle() {
   .danmu-item .first-td {
     vertical-align: super;
     width: 1.28em;
+    min-width: 1.28em;
   }
   .danmu-item a {
     color: lightblue;
