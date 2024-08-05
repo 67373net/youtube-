@@ -6,3 +6,5 @@
 - 可以在 Twitch 融合 YouTube 的弹幕
   - 需要每次都填写直播间
   - 能否自动获取直播间 ID
+
+测试地址：https://www.youtube.com/live/PnjG29WufdQ
